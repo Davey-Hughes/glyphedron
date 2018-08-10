@@ -28,6 +28,8 @@ struct shape {
 	struct edge *edges;
 
 	char *fname; /* file name of the shape coordinates */
+
+	int print_vertices; /* bool whether or not to print vertices */
 };
 
 int
@@ -95,6 +97,11 @@ init_from_file(char *fname, struct shape *s)
 			goto cleanup_edges;
 		}
 
+		if (e0 < 0 || e0 > num_v - 1 || e1 < 0 || e1 > num_v -1) {
+			fprintf(stderr, "Edge index out of bounds\n");
+			goto cleanup_edges;
+		}
+
 		s->edges[i].edge[0] = e0;
 		s->edges[i].edge[1] = e1;
 	}
@@ -103,6 +110,7 @@ init_from_file(char *fname, struct shape *s)
 
 	s->center = (struct point3) {0.0, 0.0, 0.0};
 	s->fname = fname;
+	s->print_vertices = 1;
 
 	return 0;
 
@@ -160,6 +168,7 @@ init_cube(struct shape *c)
 	c->num_v = 8;
 	c->center = (struct point3) {0.0, 0.0, 0.0};
 	c->fname = NULL;
+	c->print_vertices = 1;
 
 	return 0;
 
@@ -244,7 +253,9 @@ print_shape(struct shape s)
 {
 	if (s.num_e) {
 		print_edges(s);
-	} else {
+	}
+
+	if (s.print_vertices) {
 		print_vertices(s);
 	}
 }
@@ -461,6 +472,11 @@ loop(struct shape *s)
 		/* RESET */
 		case 'r':
 			reset_shape(s);
+			break;
+
+		/* Flip printing of vertices */
+		case '1':
+			s->print_vertices = !(s->print_vertices);
 			break;
 
 		default:
