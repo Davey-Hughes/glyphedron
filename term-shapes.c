@@ -3,67 +3,123 @@
 #include <math.h>
 #include <ncurses.h>
 
+#define MAX_VERTICES 1024 * 10
+#define MAX_EDGES 1024 * 10
+
+#define SCALE 0.4
+
 struct point3 {
 	double x;
 	double y;
 	double z;
 };
 
+struct edge {
+	int edge[2];
+};
+
 struct shape {
 	int num_v; /* number of vertices */
+	int num_e; /* number of edges */
 
 	struct point3 center; /* center of the shape */
+
 	struct point3 *vertices;
+	struct edge *edges;
 
 	char *fname; /* file name of the shape coordinates */
 };
 
 int
-init_from_file(char *fname, struct shape *c)
+init_from_file(char *fname, struct shape *s)
 {
-	int cap;
+	int err, num_v, num_e, e0, e1, i;
 	double x, y, z;
 
 	FILE *file;
 
 	file = fopen(fname, "r");
 	if (file == NULL) {
-		printf("could not open file\n");
+		fprintf(stderr, "could not open file\n");
 		return -1;
 	}
 
-	c->num_v = 0;
-	cap = 1;
-	c->vertices = malloc(sizeof(struct point3) * cap);
-	if (c->vertices == NULL) {
-		return -1;
+	err = fscanf(file, "%i, %i", &num_v, &num_e);
+	if (err == EOF) {
+		fprintf(stderr, "Returned EOF when reading first line of shape file\n");
+		goto cleanup_file;
+	} else if (err == 0) {
+		fprintf(stderr, "Zero bytes read when reading first line of shape file\n");
+		goto cleanup_file;
+	} else if (num_v > MAX_VERTICES) {
+		fprintf(stderr, "Number of vertices exceeds max vertices: %d\n", MAX_VERTICES);
+	} else if (num_e > MAX_EDGES) {
+		fprintf(stderr, "Number of edges exceeds max edges: %d\n", MAX_VERTICES);
 	}
 
-	while(fscanf(file, "%lf, %lf, %lf", &x, &y, &z) != EOF) {
-		if (c->num_v == cap) {
-			cap *= 2;
-			c->vertices = realloc(c->vertices, sizeof(struct point3) * cap);
-			if (c->vertices == NULL) {
-				goto cleanup;
-			}
+	s->num_v = num_v;
+	s->num_e = num_e;
+
+	s->vertices = malloc(sizeof(struct point3) * s->num_v);
+	if (s->vertices == NULL) {
+		goto cleanup_file;
+	}
+
+	s->edges = malloc(sizeof(struct edge) * s->num_e);
+	if (s->edges == NULL) {
+		goto cleanup_vertices;
+	}
+
+	for (i = 0; i < num_v; ++i) {
+		err = fscanf(file, "%lf, %lf, %lf", &x, &y, &z);
+		if (err == EOF) {
+			fprintf(stderr, "Returned EOF when reading vertices in shape file\n");
+			goto cleanup_edges;
+		} else if (err == 0) {
+			fprintf(stderr, "Zero bytes read when reading vertices in shape file\n");
+			goto cleanup_edges;
 		}
 
-		c->vertices[c->num_v].x = x;
-		c->vertices[c->num_v].y = y;
-		c->vertices[c->num_v].z = z;
-
-		c->num_v++;
+		s->vertices[i].x = x;
+		s->vertices[i].y = y;
+		s->vertices[i].z = z;
 	}
 
-	c->num_v = c->num_v;
-	c->center = (struct point3) {0.0, 0.0, 0.0};
-	c->fname = fname;
+	for (i = 0; i < num_e; ++i) {
+		err = fscanf(file, "%i, %i", &e0, &e1);
+		if (err == EOF) {
+			fprintf(stderr, "Returned EOF when reading edges in shape file\n");
+			goto cleanup_edges;
+		} else if (err == 0) {
+			fprintf(stderr, "Zero bytes read when reading edges in shape file\n");
+			goto cleanup_edges;
+		}
+
+		s->edges[i].edge[0] = e0;
+		s->edges[i].edge[1] = e1;
+	}
+
+	fclose(file);
+
+	s->center = (struct point3) {0.0, 0.0, 0.0};
+	s->fname = fname;
 
 	return 0;
 
-cleanup:
-	free(c->vertices);
+cleanup_edges:
+	free(s->edges);
+cleanup_vertices:
+	free(s->vertices);
+cleanup_file:
+	fclose(file);
 	return -1;
+}
+
+void
+destroy_shape(struct shape *s)
+{
+	free(s->vertices);
+	free(s->edges);
 }
 
 int
@@ -72,6 +128,11 @@ init_cube(struct shape *c)
 	c->vertices = malloc(sizeof(struct point3) * 8);
 	if (c->vertices == NULL) {
 		return -1;
+	}
+
+	c->edges = malloc(sizeof(struct edge) * 12);
+	if (c->edges == NULL) {
+		goto cleanup_verts;
 	}
 
 	c->vertices[0] = (struct point3) {1.0, 1.0, 1.0};
@@ -83,30 +144,71 @@ init_cube(struct shape *c)
 	c->vertices[6] = (struct point3) {1.0, -1.0, -1.0};
 	c->vertices[7] = (struct point3) {-1.0, -1.0, -1.0};
 
+	c->edges[0] = (struct edge) {{0, 1}};
+	c->edges[1] = (struct edge) {{0, 2}};
+	c->edges[2] = (struct edge) {{0, 4}};
+	c->edges[3] = (struct edge) {{1, 3}};
+	c->edges[4] = (struct edge) {{1, 5}};
+	c->edges[5] = (struct edge) {{2, 3}};
+	c->edges[6] = (struct edge) {{2, 6}};
+	c->edges[7] = (struct edge) {{3, 7}};
+	c->edges[8] = (struct edge) {{4, 5}};
+	c->edges[9] = (struct edge) {{4, 6}};
+	c->edges[10] = (struct edge) {{5, 7}};
+	c->edges[11] = (struct edge) {{6, 7}};
+
 	c->num_v = 8;
 	c->center = (struct point3) {0.0, 0.0, 0.0};
 	c->fname = NULL;
 
 	return 0;
+
+cleanup_verts:
+	free(c->vertices);
+	return -1;
+}
+
+void
+print_edges(struct shape s)
+{
+	int i, k, winx, winy;
+	double x0, y0, z0, x1, y1, z1, v_len, x, y, movex, movey;
+	struct point3 v, u;
+
+	getmaxyx(stdscr, winy, winx);
+
+	for (i = s.num_e - 1; i >= 0; --i) {
+		v = s.vertices[s.edges[i].edge[0]];
+		x0 = v.x;
+		y0 = v.y;
+		z0 = v.z;
+
+		v = s.vertices[s.edges[i].edge[1]];
+		x1 = v.x;
+		y1 = v.y;
+		z1 = v.z;
+
+		v = (struct point3) {x1 - x0, y1 - y0, z1 - z0};
+		v_len = sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z));
+
+		u = (struct point3) {v.x / v_len, v.y / v_len, v.z / v_len};
+
+		for (k = 0; k < 50; ++k) {
+			x = x0 + ((k / 50.0 * v_len) * u.x);
+			y = y0 + ((k / 50.0 * v_len) * u.y);
+
+			movey = (int) (-(y * SCALE * .5 * winy) + (0.5 * winy));
+			movex = (int) ((x * SCALE * winy) + (0.5 * winx));
+
+			mvprintw(movey, movex, "%s", ".");
+		}
+	}
 }
 
 void
 print_shape(struct shape s)
 {
-	int winx, winy, i;
-	double x, y, scale;
-
-	getmaxyx(stdscr, winy, winx);
-	scale = 0.4;
-
-	for (i = 0; i < s.num_v; ++i) {
-		x = s.vertices[i].x;
-		y = s.vertices[i].y;
-
-		mvprintw((int) ((y * scale * .5 * winy) + (0.5 * winy)),
-			 (int) ((x * scale * winy) + (0.5 * winx)), "%c", 'o');
-	}
-
+	print_edges(s);
 }
 
 void
@@ -228,7 +330,7 @@ translate_shape(double dist, char axis, struct shape *s)
 int
 reset_shape(struct shape *s)
 {
-	free(s->vertices);
+	destroy_shape(s);
 	if (s->fname != NULL) {
 		return init_from_file(s->fname, s);
 	}
@@ -274,10 +376,10 @@ loop(struct shape *s)
 
 		/* rotate around y axis */
 		case 'o':
-			rotate_shape(theta, 'y', s);
+			rotate_shape(-theta, 'y', s);
 			break;
 		case 'p':
-			rotate_shape(-theta, 'y', s);
+			rotate_shape(theta, 'y', s);
 			break;
 
 		/* ** SCALE ** */
@@ -302,11 +404,11 @@ loop(struct shape *s)
 
 		/* translate along y axis */
 		case 'j':
-			translate_shape(dist, 'y', s);
+			translate_shape(-dist, 'y', s);
 			break;
 
 		case 'k':
-			translate_shape(-dist, 'y', s);
+			translate_shape(dist, 'y', s);
 			break;
 
 		/* translate along z axis */
@@ -355,7 +457,7 @@ main(int argc, char **argv)
 
 	endwin();
 
-	free(cube.vertices);
+	destroy_shape(&cube);
 
 	return 0;
 }
