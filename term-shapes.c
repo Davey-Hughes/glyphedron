@@ -7,6 +7,7 @@
 #define MAX_EDGES 1024 * 10
 
 #define SCALE 0.4
+#define E_DENSITY 30
 
 struct point3 {
 	double x;
@@ -19,8 +20,9 @@ struct edge {
 };
 
 struct shape {
-	int num_v; /* number of vertices */
-	int num_e; /* number of edges */
+	int num_v;     /* number of vertices */
+	int num_e;     /* number of edges */
+	int e_density; /* number of points to draw along eatch edge */
 
 	struct point3 center; /* center of the shape */
 
@@ -110,7 +112,8 @@ init_from_file(char *fname, struct shape *s)
 
 	s->center = (struct point3) {0.0, 0.0, 0.0};
 	s->fname = fname;
-	s->print_vertices = 1;
+	s->print_vertices = 0;
+	s->e_density = E_DENSITY;
 
 	return 0;
 
@@ -168,7 +171,8 @@ init_cube(struct shape *c)
 	c->num_v = 8;
 	c->center = (struct point3) {0.0, 0.0, 0.0};
 	c->fname = NULL;
-	c->print_vertices = 1;
+	c->print_vertices = 0;
+	c->e_density = E_DENSITY;
 
 	return 0;
 
@@ -215,10 +219,10 @@ print_edges(struct shape s)
 
 		u = (struct point3) {v.x / v_len, v.y / v_len, v.z / v_len};
 
-		for (k = 0; k < 50; ++k) {
-			x = x0 + ((k / 50.0 * v_len) * u.x);
-			y = y0 + ((k / 50.0 * v_len) * u.y);
-			z = z0 + ((k / 50.0 * v_len) * u.z);
+		for (k = 0; k <= s.e_density; ++k) {
+			x = x0 + ((k / (float) s.e_density * v_len) * u.x);
+			y = y0 + ((k / (float) s.e_density * v_len) * u.y);
+			z = z0 + ((k / (float) s.e_density * v_len) * u.z);
 
 			movex = x;
 			movey = y;
@@ -477,6 +481,19 @@ loop(struct shape *s)
 		/* Flip printing of vertices */
 		case '1':
 			s->print_vertices = !(s->print_vertices);
+			break;
+
+		/* **CHANGE EDGE DENSITY** */
+		/* increase edge density */
+		case '0':
+			s->e_density++;
+			break;
+
+		/* decrease edge density */
+		case '9':
+			if (s->e_density > 0) {
+				s->e_density--;
+			}
 			break;
 
 		default:
