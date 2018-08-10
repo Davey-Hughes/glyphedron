@@ -169,13 +169,26 @@ cleanup_verts:
 }
 
 void
-print_edges(struct shape s)
+movexy(double *x, double *y)
 {
-	int i, k, winx, winy;
-	double x0, y0, z0, x1, y1, z1, v_len, x, y, movex, movey;
-	struct point3 v, u;
+	int winx, winy;
+	double movex, movey;
 
 	getmaxyx(stdscr, winy, winx);
+
+	movex = (int) ((*x * SCALE * winy) + (0.5 * winx));
+	movey = (int) (-(*y * SCALE * .5 * winy) + (0.5 * winy));
+
+	*x = movex;
+	*y = movey;
+}
+
+void
+print_edges(struct shape s)
+{
+	int i, k;
+	double x0, y0, z0, x1, y1, z1, v_len, x, y, z, movex, movey;
+	struct point3 v, u;
 
 	for (i = s.num_e - 1; i >= 0; --i) {
 		v = s.vertices[s.edges[i].edge[0]];
@@ -196,19 +209,44 @@ print_edges(struct shape s)
 		for (k = 0; k < 50; ++k) {
 			x = x0 + ((k / 50.0 * v_len) * u.x);
 			y = y0 + ((k / 50.0 * v_len) * u.y);
+			z = z0 + ((k / 50.0 * v_len) * u.z);
 
-			movey = (int) (-(y * SCALE * .5 * winy) + (0.5 * winy));
-			movex = (int) ((x * SCALE * winy) + (0.5 * winx));
+			movex = x;
+			movey = y;
+			movexy(&movex, &movey);
 
-			mvprintw(movey, movex, "%s", ".");
+			if (z < 0) {
+				mvprintw(movey, movex, "%s", ".");
+			} else {
+				mvprintw(movey, movex, "%s", "o");
+			}
 		}
+	}
+}
+
+void
+print_vertices(struct shape s)
+{
+	int i;
+	double x, y;
+
+	for (i = s.num_v - 1; i >= 0; --i) {
+		x = s.vertices[i].x;
+		y = s.vertices[i].y;
+
+		movexy(&x, &y);
+		mvprintw(y, x, "%i", i);
 	}
 }
 
 void
 print_shape(struct shape s)
 {
-	print_edges(s);
+	if (s.num_e) {
+		print_edges(s);
+	} else {
+		print_vertices(s);
+	}
 }
 
 void
