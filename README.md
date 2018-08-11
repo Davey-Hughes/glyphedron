@@ -1,5 +1,7 @@
 # Terminal Shape Renderer
 
+![alt text](https://github.com/Davey-Hughes/term-shapes/blob/master/images/dodecahedron.png "dodecahedron")
+
 ## Operation
 Without any arguments, the program can be compiled with the makefile and run like so:
 ```
