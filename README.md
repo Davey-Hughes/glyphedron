@@ -1,4 +1,4 @@
-# Terminal Solid Renderer
+# Terminal Shape Renderer
 
 ## Operation
 Without any arguments, the program can be compiled with the makefile and run like so:
