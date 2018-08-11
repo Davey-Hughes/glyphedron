@@ -8,6 +8,7 @@
 
 #define SCALE 0.4
 #define E_DENSITY 50
+#define COP {0, 0, 10000}
 
 struct point3 {
 	double x;
@@ -32,6 +33,8 @@ struct shape {
 	char *fname; /* file name of the shape coordinates */
 
 	int print_vertices; /* bool whether or not to print vertices */
+	int occlusion;      /* bool to turn occlusion on or off */
+	struct point3 cop;  /* center of projection */
 };
 
 int
@@ -119,6 +122,8 @@ init_from_file(char *fname, struct shape *s)
 	}
 
 	s->e_density = E_DENSITY;
+	s->occlusion = 0;
+	s->cop = (struct point3) COP;
 
 	return 0;
 
@@ -178,6 +183,8 @@ init_cube(struct shape *c)
 	c->fname = NULL;
 	c->print_vertices = 0;
 	c->e_density = E_DENSITY;
+	c->occlusion = 0;
+	c->cop = (struct point3) COP;
 
 	return 0;
 
@@ -199,6 +206,45 @@ movexy(double *x, double *y)
 
 	*x = movex;
 	*y = movey;
+}
+
+/*
+ * first approximation
+ * returns 0 if point should be rendered, else 1
+ */
+int
+occlude_point(struct shape s, struct point3 point)
+{
+	(void) s; (void) point;
+
+	double x0, y0, z0, x1, y1, z1, dprod, mag0, mag1, theta;
+
+	/* vector from point to the center of solid */
+	x0 = s.center.x - point.x;
+	y0 = s.center.y - point.y;
+	z0 = s.center.z - point.z;
+
+	/* vector from point to the center of projection */
+	x1 = s.cop.x - point.x;
+	y1 = s.cop.y - point.y;
+	z1 = s.cop.z - point.z;
+
+	/*
+	 * angle between two vectors is given by the arc cosine of the dot
+	 * product of the two vectors divided by the product of magnitudes of
+	 * the vectors
+	 */
+	dprod = (x0 * x1) + (y0 * y1) + (z0 * z1);
+	mag0 = sqrt((x0 * x0) + (y0 * y0) + (z0 * z0));
+	mag1 = sqrt((x1 * x1) + (y1 * y1) + (z1 * z1));
+
+	theta = acos(dprod / (mag0 * mag1));
+
+	if (theta < M_PI / 3) {
+		return 1;
+	}
+
+	return 0;
 }
 
 void
@@ -229,6 +275,10 @@ print_edges(struct shape s)
 			y = y0 + ((k / (float) s.e_density * v_len) * u.y);
 			z = z0 + ((k / (float) s.e_density * v_len) * u.z);
 
+			if (s.occlusion && occlude_point(s, (struct point3) {x, y, z})) {
+				continue;
+			}
+
 			movex = x;
 			movey = y;
 			movexy(&movex, &movey);
@@ -246,11 +296,16 @@ void
 print_vertices(struct shape s)
 {
 	int i;
-	double x, y;
+	double x, y, z;
 
 	for (i = s.num_v - 1; i >= 0; --i) {
 		x = s.vertices[i].x;
 		y = s.vertices[i].y;
+		z = s.vertices[i].z;
+
+		if (s.occlusion && occlude_point(s, (struct point3) {x, y, z})) {
+			continue;
+		}
 
 		movexy(&x, &y);
 		mvprintw(y, x, "%i", i);
@@ -483,9 +538,14 @@ loop(struct shape *s)
 			reset_shape(s);
 			break;
 
-		/* Flip printing of vertices */
+		/* flip printing of vertices */
 		case '1':
 			s->print_vertices = !(s->print_vertices);
+			break;
+
+		/* turn occlusion on or off */
+		case '2':
+			s->occlusion = !(s->occlusion);
 			break;
 
 		/* **CHANGE EDGE DENSITY** */
