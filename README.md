@@ -10,7 +10,12 @@ Without any arguments, the program can be compiled with the makefile and run lik
 ```
 
 By default, the shape rendered is a cube, but currently any object given by the
-coordinates of the vertices can be rendered.
+coordinates of the vertices (and edges) can be rendered by:
+
+```
+> make
+> ./term-shapes file
+```
 
 The keyboard inputs are:
 - q - quits the program
