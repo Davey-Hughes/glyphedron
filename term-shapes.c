@@ -10,16 +10,19 @@
 #define E_DENSITY 50
 #define COP {0, 0, 10000}
 
+/* point in 3 dimensions */
 struct point3 {
 	double x;
 	double y;
 	double z;
 };
 
+/* edge as the index of two points */
 struct edge {
 	int edge[2];
 };
 
+/* a shape/solid object */
 struct shape {
 	int num_v;     /* number of vertices */
 	int num_e;     /* number of edges */
@@ -27,8 +30,8 @@ struct shape {
 
 	struct point3 center; /* center of the shape */
 
-	struct point3 *vertices;
-	struct edge *edges;
+	struct point3 *vertices; /* list of vertices */
+	struct edge *edges;      /* list of edges */
 
 	char *fname; /* file name of the shape coordinates */
 
@@ -37,6 +40,19 @@ struct shape {
 	struct point3 cop;  /* center of projection */
 };
 
+/*
+ * initialize an object from a file
+ *
+ * the first line of the file is two comma separated ints describing the number
+ * of vertices n and number of edges m
+ *
+ * the next n lines are each 3 comma separated floating point values describing
+ * the (x, y, z) locations of the vertex in 3D coordinates
+ *
+ * the next m lines are 2 comma separated positive integer values
+ * correspoinding to the indices of two vertices that describe an edge. Each
+ * edge only needs to be described once
+ */
 int
 init_from_file(char *fname, struct shape *s)
 {
@@ -44,13 +60,13 @@ init_from_file(char *fname, struct shape *s)
 	double x, y, z;
 
 	FILE *file;
-
 	file = fopen(fname, "r");
 	if (file == NULL) {
 		fprintf(stderr, "could not open file\n");
 		return -1;
 	}
 
+	/* read number of vertices and edges */
 	err = fscanf(file, "%i, %i", &num_v, &num_e);
 	if (err == EOF) {
 		fprintf(stderr, "Returned EOF when reading first line of shape file\n");
@@ -77,6 +93,7 @@ init_from_file(char *fname, struct shape *s)
 		goto cleanup_vertices;
 	}
 
+	/* read 3D coordinates describing every vertex */
 	for (i = 0; i < num_v; ++i) {
 		err = fscanf(file, "%lf, %lf, %lf", &x, &y, &z);
 		if (err == EOF) {
@@ -92,6 +109,7 @@ init_from_file(char *fname, struct shape *s)
 		s->vertices[i].z = z;
 	}
 
+	/* read indices of edges described by two vertices */
 	for (i = 0; i < num_e; ++i) {
 		err = fscanf(file, "%i, %i", &e0, &e1);
 		if (err == EOF) {
@@ -115,8 +133,13 @@ init_from_file(char *fname, struct shape *s)
 
 	s->center = (struct point3) {0.0, 0.0, 0.0};
 	s->fname = fname;
-	s->print_vertices = 1;
 
+	/*
+	 * by default, vertices are not drawn directly, but if no edges are
+	 * described by the input file, the vertices will be drawn by the
+	 * function print_vertices()
+	 */
+	s->print_vertices = 1;
 	if (s->num_e) {
 		s->print_vertices = 0;
 	}
@@ -136,6 +159,9 @@ cleanup_file:
 	return -1;
 }
 
+/*
+ * free memory allocated for shape
+ */
 void
 destroy_shape(struct shape *s)
 {
@@ -143,6 +169,9 @@ destroy_shape(struct shape *s)
 	free(s->edges);
 }
 
+/*
+ * default shape if no file is given
+ */
 int
 init_cube(struct shape *c)
 {
@@ -193,6 +222,11 @@ cleanup_verts:
 	return -1;
 }
 
+/*
+ * translate an x and y value based on the window dimensions and some magic
+ * numbers so an object described with a "radius" approximately 1 will be
+ * centered in the center of the screen and entirely fit on the screen
+ */
 void
 movexy(double *x, double *y)
 {
@@ -209,7 +243,14 @@ movexy(double *x, double *y)
 }
 
 /*
- * first approximation
+ * first approximation of occluding points
+ *
+ * operates by finding the angle between the vectors given by the point to the
+ * center of the object and the point to the center of projection. This is only
+ * an approximation as the angle given by this calculation doesn't determine
+ * entirely whether a point should be occluded. The threshold is given by pi/3,
+ * but as this is approximate it can be adjusted.
+ *
  * returns 0 if point should be rendered, else 1
  */
 int
@@ -247,6 +288,10 @@ occlude_point(struct shape s, struct point3 point)
 	return 0;
 }
 
+/*
+ * prints the edges by calculating the normal vector from two given points, and
+ * then prints points along the edge by multiplying the normal
+ */
 void
 print_edges(struct shape s)
 {
@@ -254,6 +299,7 @@ print_edges(struct shape s)
 	double x0, y0, z0, x1, y1, z1, v_len, x, y, z, movex, movey;
 	struct point3 v, u;
 
+	/* iterates over the edges */
 	for (i = s.num_e - 1; i >= 0; --i) {
 		v = s.vertices[s.edges[i].edge[0]];
 		x0 = v.x;
@@ -265,16 +311,28 @@ print_edges(struct shape s)
 		y1 = v.y;
 		z1 = v.z;
 
+		/* v is the vector given by two points */
 		v = (struct point3) {x1 - x0, y1 - y0, z1 - z0};
 		v_len = sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z));
 
+		/* u is the normal vector from v */
 		u = (struct point3) {v.x / v_len, v.y / v_len, v.z / v_len};
 
+		/*
+		 * prints points along the edge
+		 *
+		 * e_density is a natural number directly corresponding to the
+		 * number of points printed along the edge
+		 */
 		for (k = 0; k <= s.e_density; ++k) {
 			x = x0 + ((k / (float) s.e_density * v_len) * u.x);
 			y = y0 + ((k / (float) s.e_density * v_len) * u.y);
 			z = z0 + ((k / (float) s.e_density * v_len) * u.z);
 
+			/*
+			 * if the occlusion flag is set and a point shouldn't
+			 * be occluded, the rest of the loop prints the point
+			 */
 			if (s.occlusion && occlude_point(s, (struct point3) {x, y, z})) {
 				continue;
 			}
@@ -283,6 +341,12 @@ print_edges(struct shape s)
 			movey = y;
 			movexy(&movex, &movey);
 
+			/*
+			 * to give a sense of distance and since each object
+			 * starts centered around the origin, points that have
+			 * a negative z value (therefore are "behind" the
+			 * xy-plane) are printed with a "." instead of a "o"
+			 */
 			if (z < 0) {
 				mvprintw(movey, movex, "%s", ".");
 			} else {
@@ -292,6 +356,12 @@ print_edges(struct shape s)
 	}
 }
 
+/*
+ * prints the vertices with their index (to make connecting edges easier)
+ *
+ * vertices are printed backwards so that lower numbered indices are printed in
+ * front of the higher number indices if they overlap
+ */
 void
 print_vertices(struct shape s)
 {
@@ -312,6 +382,9 @@ print_vertices(struct shape s)
 	}
 }
 
+/*
+ * only prints edges if edges are stored in the shape struct
+ */
 void
 print_shape(struct shape s)
 {
@@ -324,6 +397,10 @@ print_shape(struct shape s)
 	}
 }
 
+/*
+ * rotates each point in one of 6 directions, given the angle (can be positive
+ * or negative) and the axis around which to rotate
+ */
 void
 rotate_shape(double theta, char axis, struct shape *s)
 {
@@ -383,6 +460,9 @@ rotate_shape(double theta, char axis, struct shape *s)
 	}
 }
 
+/*
+ * scale the object by a given magnitude
+ */
 void
 scale_shape(double mag, struct shape *s)
 {
@@ -403,6 +483,10 @@ scale_shape(double mag, struct shape *s)
 	}
 }
 
+/*
+ * translates each vertex given a distance and the axis which to translate
+ * along
+ */
 void
 translate_shape(double dist, char axis, struct shape *s)
 {
@@ -440,6 +524,10 @@ translate_shape(double dist, char axis, struct shape *s)
 	}
 }
 
+/*
+ * completely resets the shape, either by the filename originally given or the
+ * default, hardcoded cube
+ */
 int
 reset_shape(struct shape *s)
 {
@@ -451,6 +539,10 @@ reset_shape(struct shape *s)
 	return init_cube(s);
 }
 
+/*
+ * loop which re-prints the shape with every keypress, and checks for certain
+ * keyboard input to determine functions to run on the shape
+ */
 void
 loop(struct shape *s)
 {
@@ -578,7 +670,7 @@ main(int argc, char **argv)
 	} else {
 		err = init_cube(&cube);
 	}
-	if (err == -1) {
+	if (err != 0) {
 		printf("error allocating cube\n");
 		exit(1);
 	}
