@@ -7,7 +7,7 @@
 #define MAX_EDGES 1024 * 10
 
 #define SCALE 0.4
-#define E_DENSITY 30
+#define E_DENSITY 50
 
 struct point3 {
 	double x;
@@ -112,7 +112,12 @@ init_from_file(char *fname, struct shape *s)
 
 	s->center = (struct point3) {0.0, 0.0, 0.0};
 	s->fname = fname;
-	s->print_vertices = 0;
+	s->print_vertices = 1;
+
+	if (s->num_e) {
+		s->print_vertices = 0;
+	}
+
 	s->e_density = E_DENSITY;
 
 	return 0;
