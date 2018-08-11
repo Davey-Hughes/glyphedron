@@ -17,7 +17,7 @@ coordinates of the vertices (and edges) can be rendered by:
 > ./term-shapes file
 ```
 
-The keyboard inputs are:
+### Keyboard Inputs
 - q - quits the program
 - r - resets the shape
 - f,g,h,j,k,l - translates the shape
