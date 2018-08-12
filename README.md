@@ -2,6 +2,19 @@
 
 ![alt text](https://github.com/Davey-Hughes/term-shapes/blob/master/images/dodecahedron.png "dodecahedron")
 
+## Installation
+The only thing that needs to be installed to compile this program is ncurses.
+
+### MacOS Homebrew
+```
+brew install ncurses
+```
+
+### Ubuntu
+```
+sudo apt install libncurses5-dev
+```
+
 ## Operation
 Without any arguments, the program can be compiled with the makefile and run like so:
 ```
