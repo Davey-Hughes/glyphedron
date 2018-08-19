@@ -29,7 +29,9 @@
 #define E_DENSITY 50
 #define COP {0, 0, 10000}
 
-#define TIMING 1
+#ifndef TIMING
+# define TIMING 1
+#endif
 
 /* point in 3 dimensions */
 struct point3 {
