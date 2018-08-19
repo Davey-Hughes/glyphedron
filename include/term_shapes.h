@@ -16,7 +16,7 @@
  */
 
 #ifndef TIMING
-# define TIMING 0
+#define TIMING 1
 #endif
 
 #if TIMING
@@ -47,6 +47,13 @@ struct edge {
 	int edge[2];
 };
 
+/* choose which occlusion method to use */
+enum occ_method {
+	NONE,
+	APPROX,
+	EXACT /* currently not implemented */
+};
+
 /* a shape/solid object */
 struct shape {
 	int num_v;     /* number of vertices */
@@ -60,9 +67,9 @@ struct shape {
 
 	char *fname; /* file name of the shape coordinates */
 
-	int print_vertices; /* bool whether or not to print vertices */
-	int occlusion;      /* bool to turn occlusion on or off */
-	struct point3 cop;  /* center of projection */
+	int print_vertices;        /* bool whether or not to print vertices */
+	enum occ_method occlusion; /* choose which occlusion method to use */
+	struct point3 cop;         /* center of projection */
 };
 
 int init_from_file(char *, struct shape *);

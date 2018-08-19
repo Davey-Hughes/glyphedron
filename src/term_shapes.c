@@ -134,7 +134,7 @@ init_from_file(char *fname, struct shape *s)
 	}
 
 	s->e_density = E_DENSITY;
-	s->occlusion = 0;
+	s->occlusion = NONE;
 	s->cop = (struct point3) COP;
 
 	return 0;
@@ -201,7 +201,7 @@ init_cube(struct shape *c)
 	c->fname = NULL;
 	c->print_vertices = 0;
 	c->e_density = E_DENSITY;
-	c->occlusion = 0;
+	c->occlusion = NONE;
 	c->cop = (struct point3) COP;
 
 	return 0;
@@ -243,7 +243,7 @@ movexy(double *x, double *y)
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point(struct shape s, struct point3 point)
+occlude_point_approx(struct shape s, struct point3 point)
 {
 	double x0, y0, z0, x1, y1, z1, dprod, mag0, mag1, theta;
 
@@ -273,6 +273,23 @@ occlude_point(struct shape s, struct point3 point)
 	}
 
 	return 0;
+}
+
+int
+occlude_point(struct shape s, struct point3 point)
+{
+	switch (s.occlusion) {
+	case NONE:
+		return 1;
+
+	case APPROX:
+		return occlude_point_approx(s, point);
+
+	case EXACT: /* currently not implemented */
+		return occlude_point_approx(s, point);
+	}
+
+	return 1;
 }
 
 /*
@@ -536,6 +553,7 @@ loop(struct shape *s)
 {
 	int c;
 	double theta, dist, scale;
+	char *occlusion_type = "";
 
 #if TIMING
 	struct timespec start, end, diff, avg_op, avg_print;
@@ -566,10 +584,27 @@ loop(struct shape *s)
 	while(1) {
 		wclear(stdscr);
 
+		switch (s->occlusion) {
+		case NONE:
+			occlusion_type = "none";
+			break;
+
+		case APPROX:
+			occlusion_type = "approximate";
+			break;
+
+		case EXACT:
+			occlusion_type = "exact";
+			break;
+		}
+
+		mvprintw(1, 1, "Occlusion type: %s", occlusion_type);
+
+
 #if TIMING
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 		timespec_diff(&start, &end, &diff);
-		mvprintw(2, 1, "Operation time: %ld.%06ld seconds\n",
+		mvprintw(3, 1, "Operation time: %ld.%06ld seconds\n",
 	       	       diff.tv_sec, diff.tv_nsec / 1000);
 
 		timespec_avg(&avg_op, &diff, &avg_op);
@@ -583,7 +618,7 @@ loop(struct shape *s)
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
 		timespec_diff(&start, &end, &diff);
-		mvprintw(1, 1, "Print time: %ld.%06ld seconds\n",
+		mvprintw(2, 1, "Print time: %ld.%06ld seconds\n",
 	       	       diff.tv_sec, diff.tv_nsec / 1000);
 
 		timespec_avg(&avg_print, &diff, &avg_print);
@@ -685,7 +720,11 @@ loop(struct shape *s)
 
 		/* turn occlusion on or off */
 		case '2':
-			s->occlusion = !(s->occlusion);
+			s->occlusion++;
+			if (s->occlusion > EXACT) {
+				s->occlusion = NONE;
+			}
+
 			break;
 
 		/* **CHANGE EDGE DENSITY** */

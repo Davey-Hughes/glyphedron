@@ -38,7 +38,7 @@ coordinates of the vertices (and edges) can be rendered by:
 - -,= - enlarge or ensmallen the shape
 - 9,0 - increase the density of the points drawn to represent the edges
 - 1 - toggle showing the vertices by index
-- 2 - toggle calculating occlusion
+- 2 - toggle calculating occlusion (iterates through occlusion options)
 
 ## Shape Input File
 The first line of the file are two comma separated normal numbers describing
