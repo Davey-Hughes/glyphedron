@@ -62,10 +62,20 @@ timespec_avg(struct timespec *t1, struct timespec *t2,
 {
 	struct timespec res;
 
-	timespec_add(t1, t2, &res);
-
-	res.tv_sec /= 2;
-	res.tv_nsec /= 2;
+	/* if either of t1 or t2 are negative, then set res to the other
+ 	 * of t1 or t2. This accounts for the initialization case where the
+ 	 * average is uninitialized because a negative time in this context is
+ 	 * impossible
+ 	 */
+	if (t1->tv_sec < 0 && t1->tv_nsec < 0) {
+		res = *t2;
+	} else if (t2->tv_sec < 0 && t2->tv_nsec < 0) {
+		res = *t1;
+	} else {
+		timespec_add(t1, t2, &res);
+		res.tv_sec /= 2;
+		res.tv_nsec /= 2;
+	}
 
 	*result = res;
 }

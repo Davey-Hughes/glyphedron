@@ -535,8 +535,22 @@ loop(struct shape *s)
 	double theta, dist, scale;
 
 #if TIMING
-	struct timespec start, end, diff;
+	struct timespec start, end, diff, avg_op, avg_print;
+
+	avg_op.tv_sec = -1;
+	avg_op.tv_nsec = -1;
+
+	avg_print.tv_sec = -1;
+	avg_print.tv_nsec = -1;
 #endif
+
+	/* start ncurses mode */
+	initscr();
+	noecho();
+	cbreak();
+	keypad(stdscr, TRUE);
+	curs_set(0);
+
 
 	theta = M_PI / 200;
 	dist = 0.1;
@@ -545,6 +559,7 @@ loop(struct shape *s)
 #if TIMING
 	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 #endif
+
 	while(1) {
 		wclear(stdscr);
 
@@ -554,8 +569,11 @@ loop(struct shape *s)
 		mvprintw(2, 1, "Operation time: %ld.%06ld seconds\n",
 	       	       diff.tv_sec, diff.tv_nsec / 1000);
 
+		timespec_avg(&avg_op, &diff, &avg_op);
+
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 #endif
+
 		print_shape(*s);
 
 #if TIMING
@@ -564,6 +582,8 @@ loop(struct shape *s)
 		timespec_diff(&start, &end, &diff);
 		mvprintw(1, 1, "Print time: %ld.%06ld seconds\n",
 	       	       diff.tv_sec, diff.tv_nsec / 1000);
+
+		timespec_avg(&avg_print, &diff, &avg_print);
 #endif
 
 		c = getch();
@@ -571,8 +591,20 @@ loop(struct shape *s)
 #if TIMING
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 #endif
+
 		switch(c) {
 		case 'q':
+			/* end ncurses mode */
+			endwin();
+
+#if TIMING
+			printf("Average operation time: %ld.%06ld seconds\n",
+				avg_op.tv_sec, avg_op.tv_nsec / 1000);
+
+			printf("Average print time: %ld.%06ld seconds\n",
+				avg_print.tv_sec, avg_print.tv_nsec / 1000);
+#endif
+
 			return;
 
 		/* ** ROTATIONS ** */
@@ -688,15 +720,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	initscr();
-	noecho();
-	cbreak();
-	keypad(stdscr, TRUE);
-	curs_set(0);
-
 	loop(&cube);
-
-	endwin();
 
 	destroy_shape(&cube);
 
