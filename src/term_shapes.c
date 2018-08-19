@@ -1,47 +1,29 @@
+/*
+ *     Copyright (C) 2018  Davey Hughes
+ *
+ *     This program is free software: you can redistribute it and/or modify it
+ *     under the terms of the GNU General Public License as published by the
+ *     Free Software Foundation, either version 3 of the License, or (at your
+ *     option) any later version.
+ *
+ *     This program is distributed in the hope that it will be useful, but
+ *     WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *     General Public License for more details.
+ *
+ *     You should have received a copy of the GNU General Public License along
+ *     with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
 #include <ncurses.h>
 
-#define MAX_VERTICES 1024 * 10
-#define MAX_EDGES 1024 * 10
-
-#define SCALE 0.4
-#define E_DENSITY 50
-#define COP {0, 0, 10000}
-
-#define TIMING 0
-
-/* point in 3 dimensions */
-struct point3 {
-	double x;
-	double y;
-	double z;
-};
-
-/* edge as the index of two points */
-struct edge {
-	int edge[2];
-};
-
-/* a shape/solid object */
-struct shape {
-	int num_v;     /* number of vertices */
-	int num_e;     /* number of edges */
-	int e_density; /* number of points to draw along eatch edge */
-
-	struct point3 center; /* center of the shape */
-
-	struct point3 *vertices; /* list of vertices */
-	struct edge *edges;      /* list of edges */
-
-	char *fname; /* file name of the shape coordinates */
-
-	int print_vertices; /* bool whether or not to print vertices */
-	int occlusion;      /* bool to turn occlusion on or off */
-	struct point3 cop;  /* center of projection */
-};
+#include "term_shapes.h"
 
 void
 timespec_diff(struct timespec *start, struct timespec *stop,
@@ -274,8 +256,6 @@ movexy(double *x, double *y)
 int
 occlude_point(struct shape s, struct point3 point)
 {
-	(void) s; (void) point;
-
 	double x0, y0, z0, x1, y1, z1, dprod, mag0, mag1, theta;
 
 	/* vector from point to the center of solid */
@@ -561,6 +541,7 @@ reset_shape(struct shape *s)
  * loop which re-prints the shape with every keypress, and checks for certain
  * keyboard input to determine functions to run on the shape
  */
+static
 void
 loop(struct shape *s)
 {
