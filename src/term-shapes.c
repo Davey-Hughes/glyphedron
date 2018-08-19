@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 #include <ncurses.h>
 
 #define MAX_VERTICES 1024 * 10
@@ -9,6 +10,8 @@
 #define SCALE 0.4
 #define E_DENSITY 50
 #define COP {0, 0, 10000}
+
+#define TIMING 0
 
 /* point in 3 dimensions */
 struct point3 {
@@ -39,6 +42,21 @@ struct shape {
 	int occlusion;      /* bool to turn occlusion on or off */
 	struct point3 cop;  /* center of projection */
 };
+
+void
+timespec_diff(struct timespec *start, struct timespec *stop,
+	      struct timespec *result)
+{
+	if ((stop->tv_nsec - start->tv_nsec) < 0) {
+		result->tv_sec = stop->tv_sec - start->tv_sec - 1;
+		result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000;
+	} else {
+		result->tv_sec = stop->tv_sec - start->tv_sec;
+		result->tv_nsec = stop->tv_nsec - start->tv_nsec;
+	}
+
+	return;
+}
 
 /*
  * initialize an object from a file
@@ -549,15 +567,43 @@ loop(struct shape *s)
 	int c;
 	double theta, dist, scale;
 
+#if TIMING
+	struct timespec start, end, diff;
+#endif
+
 	theta = M_PI / 200;
 	dist = 0.1;
 	scale = 1.1;
 
+#if TIMING
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+#endif
 	while(1) {
 		wclear(stdscr);
+
+#if TIMING
+		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+		timespec_diff(&start, &end, &diff);
+		mvprintw(2, 1, "Operation time: %ld.%06ld seconds\n",
+	       	       diff.tv_sec, diff.tv_nsec / 1000);
+
+		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+#endif
 		print_shape(*s);
 
+#if TIMING
+		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+
+		timespec_diff(&start, &end, &diff);
+		mvprintw(1, 1, "Print time: %ld.%06ld seconds\n",
+	       	       diff.tv_sec, diff.tv_nsec / 1000);
+#endif
+
 		c = getch();
+
+#if TIMING
+		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+#endif
 		switch(c) {
 		case 'q':
 			return;
