@@ -33,7 +33,7 @@
  * initialize an object from a file
  *
  * the first line of the file is two comma separated ints describing the number
- * of vertices n and number of edges m
+ * of vertices n, number of edges m, and number of faces k
  *
  * the next n lines are each 3 comma separated floating point values describing
  * the (x, y, z) locations of the vertex in 3D coordinates
@@ -41,11 +41,14 @@
  * the next m lines are 2 comma separated positive integer values
  * correspoinding to the indices of two vertices that describe an edge. Each
  * edge only needs to be described once
+ *
+ * the next k lines are 3 comma separated positive integer values corresponding
+ * to the indices of 3 points that make up a face
  */
 int
 init_from_file(char *fname, struct shape *s)
 {
-	int err, num_v, num_e, e0, e1, i;
+	int err, num_v, num_e, num_f, e0, e1, f0, f1, f2, i;
 	double x, y, z;
 
 	FILE *file;
@@ -56,7 +59,7 @@ init_from_file(char *fname, struct shape *s)
 	}
 
 	/* read number of vertices and edges */
-	err = fscanf(file, "%i, %i", &num_v, &num_e);
+	err = fscanf(file, "%i, %i, %i", &num_v, &num_e, &num_f);
 	if (err == EOF) {
 		fprintf(stderr, "Returned EOF when reading first line of shape file\n");
 		goto cleanup_file;
@@ -67,10 +70,13 @@ init_from_file(char *fname, struct shape *s)
 		fprintf(stderr, "Number of vertices exceeds max vertices: %d\n", MAX_VERTICES);
 	} else if (num_e > MAX_EDGES) {
 		fprintf(stderr, "Number of edges exceeds max edges: %d\n", MAX_VERTICES);
+	} else if (num_f > MAX_FACES) {
+		fprintf(stderr, "Number of faces exceeds max faces: %d\n", MAX_FACES);
 	}
 
 	s->num_v = num_v;
 	s->num_e = num_e;
+	s->num_f = num_f;
 
 	s->vertices = malloc(sizeof(struct point3) * s->num_v);
 	if (s->vertices == NULL) {
@@ -82,15 +88,20 @@ init_from_file(char *fname, struct shape *s)
 		goto cleanup_vertices;
 	}
 
+	s->faces = malloc(sizeof(struct face) * s->num_f);
+	if (s->faces == NULL) {
+		goto cleanup_edges;
+	}
+
 	/* read 3D coordinates describing every vertex */
 	for (i = 0; i < num_v; ++i) {
 		err = fscanf(file, "%lf, %lf, %lf", &x, &y, &z);
 		if (err == EOF) {
 			fprintf(stderr, "Returned EOF when reading vertices in shape file\n");
-			goto cleanup_edges;
+			goto cleanup_faces;
 		} else if (err == 0) {
 			fprintf(stderr, "Zero bytes read when reading vertices in shape file\n");
-			goto cleanup_edges;
+			goto cleanup_faces;
 		}
 
 		s->vertices[i].x = x;
@@ -103,19 +114,41 @@ init_from_file(char *fname, struct shape *s)
 		err = fscanf(file, "%i, %i", &e0, &e1);
 		if (err == EOF) {
 			fprintf(stderr, "Returned EOF when reading edges in shape file\n");
-			goto cleanup_edges;
+			goto cleanup_faces;
 		} else if (err == 0) {
 			fprintf(stderr, "Zero bytes read when reading edges in shape file\n");
-			goto cleanup_edges;
+			goto cleanup_faces;
 		}
 
 		if (e0 < 0 || e0 > num_v - 1 || e1 < 0 || e1 > num_v -1) {
 			fprintf(stderr, "Edge index out of bounds\n");
-			goto cleanup_edges;
+			goto cleanup_faces;
 		}
 
 		s->edges[i].edge[0] = e0;
 		s->edges[i].edge[1] = e1;
+	}
+
+	for (i = 0; i < num_f; ++i) {
+		err = fscanf(file, "%i, %i, %i", &f0, &f1, &f2);
+		if (err == EOF) {
+			fprintf(stderr, "Returned EOF when reading faces in shape file\n");
+			goto cleanup_faces;
+		} else if (err == 0) {
+			fprintf(stderr, "Zero bytes read when reading faces in shape file\n");
+			goto cleanup_faces;
+		}
+
+		if (f0 < 0 || f0 > num_v - 1 ||
+		    f1 < 0 || f1 > num_v - 1 ||
+		    f2 < 0 || f2 > num_v - 1) {
+			fprintf(stderr, "Face index out of bounds\n");
+			goto cleanup_faces;
+		}
+
+		s->faces[i].face[0] = f0;
+		s->faces[i].face[1] = f1;
+		s->faces[i].face[2] = f2;
 	}
 
 	fclose(file);
@@ -141,6 +174,8 @@ init_from_file(char *fname, struct shape *s)
 
 	return 0;
 
+cleanup_faces:
+	free(s->faces);
 cleanup_edges:
 	free(s->edges);
 cleanup_vertices:
@@ -158,6 +193,7 @@ destroy_shape(struct shape *s)
 {
 	free(s->vertices);
 	free(s->edges);
+	free(s->faces);
 }
 
 /*
@@ -174,6 +210,11 @@ init_cube(struct shape *c)
 	c->edges = malloc(sizeof(struct edge) * 12);
 	if (c->edges == NULL) {
 		goto cleanup_verts;
+	}
+
+	c->faces = malloc(sizeof(struct edge) * 1);
+	if (c->faces == NULL) {
+		goto cleanup_edges;
 	}
 
 	c->vertices[0] = (struct point3) {1.0, 1.0, 1.0};
@@ -200,6 +241,7 @@ init_cube(struct shape *c)
 
 	c->num_v = 8;
 	c->num_e = 12;
+	c->num_f = 0;
 	c->center = (struct point3) {0.0, 0.0, 0.0};
 	c->fname = NULL;
 	c->print_vertices = 0;
@@ -210,6 +252,8 @@ init_cube(struct shape *c)
 
 	return 0;
 
+cleanup_edges:
+	free(c->edges);
 cleanup_verts:
 	free(c->vertices);
 	return -1;
@@ -287,6 +331,139 @@ occlude_point_approx(struct shape s, struct point3 point)
 int
 occlude_point_convex(struct shape s, struct point3 point)
 {
+	int i;
+	double x0, y0, z0, x1, y1, z1, x2, y2, z2, d, t, dist0, dist1;
+	struct point3 u, v0, v1, n, inter;
+
+	/*
+	 * iterate through every face in the shape and determine whether the
+	 * ray between the center of projection and input point intersects a
+	 * face
+	 *
+	 * note: precomputing the equations for the faces would speed this up
+	 */
+	for (i = 0; i < s.num_f; ++i) {
+		/*
+		 * two vectors from the points that define the plane-face of
+		 * the object
+		 */
+		u = s.vertices[s.faces[i].face[0]];
+		/* u = (struct point3) {1, -2, 0}; */
+		x0 = u.x;
+		y0 = u.y;
+		z0 = u.z;
+
+		u = s.vertices[s.faces[i].face[1]];
+		/* u = (struct point3) {3, 1, 4}; */
+		x1 = u.x;
+		y1 = u.y;
+		z1 = u.z;
+
+		u = s.vertices[s.faces[i].face[2]];
+		/* u = (struct point3) {0, -1, 2}; */
+		x2 = u.x;
+		y2 = u.y;
+		z2 = u.z;
+
+		v0.x = x0 - x1;
+		v0.y = y0 - y1;
+		v0.z = z0 - z1;
+
+		v1.x = x0 - x2;
+		v1.y = y0 - y2;
+		v1.z = z0 - z2;
+
+		/* n is the cross product of the two vectors */
+		n.x = (v0.y * v1.z) - (v0.z * v1.y);
+		n.y = (v0.z * v1.x) - (v0.x * v1.z);
+		n.z = (v0.x * v1.y) - (v0.y * v1.x);
+
+		/*
+		 * with the parameterized equation of the plane given as:
+		 * 	ax + by + cz = d
+		 * a is the value n.x, b is the value n.y, z is the value n.z
+		 * and d is given by solving ax + by + cz = 0, where x, y, and
+		 * z are the x, y, and z from any one of the intial points
+		 */
+		d = (n.x * x0) + (n.y * y0) + (n.z * z0);
+
+		/* TODO: determine if line is parallel to plane or not */
+
+		/*
+		 * the intersection of the line between the point we're
+		 * evaluating and the center of projection with the face-plane
+		 * is given by finding the parametric form of the line (where p
+		 * is the point we're evaluating and cop is the center of
+		 * projection point:
+		 * 	r(t) = <x_p, y_p, z_p> + t<x_cop - x_p, y_cop - y_p, z_cop - z_p>
+		 * After substituting these points in, we can then solve for z
+		 * by plugging in the parametric form of the line to our
+		 * equation of the plane.
+		 */
+
+		t = (d - (n.x * point.x + n.y * point.y + n.z * point.z)) /
+			(n.x * (s.cop.x - point.x) +
+			 n.y * (s.cop.y - point.y) +
+			 n.z * (s.cop.z - point.z));
+
+		/* inter is the intersection point */
+		inter.x = (point.x + (t * (s.cop.x - point.x)));
+		inter.y = (point.y + (t * (s.cop.y - point.y)));
+		inter.z = (point.z + (t * (s.cop.z - point.z)));
+
+		/*
+ 		 * APPROXIMATION
+ 		 *
+		 * if the intersection point is far away from the shape, don't
+		 * consider it.
+		 *
+		 * Far away is defined as being further away from center of the
+		 * shape than a point on the shape. (Should be from the
+		 * furthest away point, but this is currently not implemeted)
+		 */
+
+		/* distance between center and intersection */
+		x0 = s.center.x - inter.x;
+		y0 = s.center.y - inter.y;
+		z0 = s.center.z - inter.z;
+		dist0 = sqrt((x0 * x0) + (y0 * y0) + (z0 * z0));
+
+		/* distance between center and a point on the shape */
+		x1 = s.center.x - s.vertices[0].x;
+		y1 = s.center.y - s.vertices[0].y;
+		z1 = s.center.z - s.vertices[0].z;
+		dist1 = sqrt((x1 * x1) + (y1 * y1) + (z1 * z1));
+
+		/* fprintf(stderr, "%lf, %lf, %lf %lf, %lf\n", point.x, point.y, point.z, dist0, dist1); */
+
+		if (dist0 > dist1) {
+			continue;
+		}
+
+		/*
+		 * if the distance between the intersection point and the cop
+		 * is smaller than the distance between the point we're
+		 * evaluating and the cop, the point should be occluded (not
+		 * rendered)
+		 */
+
+		/* distance between cop and intersection */
+		x0 = s.cop.x - inter.x;
+		y0 = s.cop.y - inter.y;
+		z0 = s.cop.z - inter.z;
+		dist0 = sqrt((x0 * x0) + (y0 * y0) + (z0 * z0));
+
+		/* distance between cop and point we're evaluating */
+		x1 = s.cop.x - point.x;
+		y1 = s.cop.y - point.y;
+		z1 = s.cop.z - point.z;
+		dist1 = sqrt((x1 * x1) + (y1 * y1) + (z1 * z1));
+
+		if (dist0 < dist1) {
+			return 1;
+		}
+	}
+
 	return 0;
 }
 
@@ -305,7 +482,7 @@ occlude_point(struct shape s, struct point3 point)
 	case APPROX:
 		return occlude_point_approx(s, point);
 
-	case CONVEX: /* not implemented */
+	case CONVEX:
 		return occlude_point_convex(s, point);
 
 	case EXACT: /* not implemented */
@@ -616,7 +793,7 @@ loop(struct shape *s)
 			break;
 
 		case CONVEX:
-			occlusion_type = "convex not implemented";
+			occlusion_type = "convex";
 			break;
 
 		case EXACT:
@@ -781,21 +958,21 @@ int
 main(int argc, char **argv)
 {
 	int err;
-	struct shape cube;
+	struct shape s;
 
 	if (argc > 1) {
-		err = init_from_file(argv[1], &cube);
+		err = init_from_file(argv[1], &s);
 	} else {
-		err = init_cube(&cube);
+		err = init_cube(&s);
 	}
 	if (err != 0) {
 		printf("error allocating cube\n");
 		exit(1);
 	}
 
-	loop(&cube);
+	loop(&s);
 
-	destroy_shape(&cube);
+	destroy_shape(&s);
 
 	return 0;
 }

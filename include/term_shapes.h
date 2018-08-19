@@ -30,6 +30,7 @@
 
 #define MAX_VERTICES 1024 * 10
 #define MAX_EDGES 1024 * 10
+#define MAX_FACES 1024 * 10
 
 #define SCALE 0.4
 #define E_DENSITY 50
@@ -47,11 +48,16 @@ struct edge {
 	int edge[2];
 };
 
+/* edge as the index of three points */
+struct face {
+	int face[3];
+};
+
 /* choose which occlusion method to use */
 enum occ_method {
 	NONE,
 	APPROX,
-	CONVEX, /* not implemented */
+	CONVEX,
 	EXACT   /* not implemented */
 };
 
@@ -59,12 +65,14 @@ enum occ_method {
 struct shape {
 	int num_v;     /* number of vertices */
 	int num_e;     /* number of edges */
+	int num_f;     /* number of faces */
 	int e_density; /* number of points to draw along eatch edge */
 
 	struct point3 center; /* center of the shape */
 
 	struct point3 *vertices; /* list of vertices */
 	struct edge *edges;      /* list of edges */
+	struct face *faces;      /* list of faces */
 
 	char *fname; /* file name of the shape coordinates */
 
