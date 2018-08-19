@@ -15,7 +15,13 @@
  *     with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifndef TIMING
+# define TIMING 0
+#endif
+
+#if TIMING
 #include "timing.h"
+#endif
 
 #ifndef TERM_SHAPES_H
 #define TERM_SHAPES_H
@@ -28,10 +34,6 @@
 #define SCALE 0.4
 #define E_DENSITY 50
 #define COP {0, 0, 10000}
-
-#ifndef TIMING
-# define TIMING 1
-#endif
 
 /* point in 3 dimensions */
 struct point3 {

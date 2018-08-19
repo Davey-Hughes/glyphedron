@@ -23,7 +23,10 @@
 #include <time.h>
 #include <ncurses.h>
 
+#if TIMING
 #include "timing.h"
+#endif
+
 #include "term_shapes.h"
 
 /*
