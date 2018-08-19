@@ -15,6 +15,8 @@
  *     with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "timing.h"
+
 #ifndef TERM_SHAPES_H
 #define TERM_SHAPES_H
 
@@ -28,12 +30,6 @@
 #define COP {0, 0, 10000}
 
 #define TIMING 1
-
-#if TIMING
-struct avg_timing {
-	int a;
-};
-#endif
 
 /* point in 3 dimensions */
 struct point3 {
