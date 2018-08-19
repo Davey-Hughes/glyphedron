@@ -133,6 +133,8 @@ init_from_file(char *fname, struct shape *s)
 		s->print_vertices = 0;
 	}
 
+	s->print_edges = 1;
+
 	s->e_density = E_DENSITY;
 	s->occlusion = NONE;
 	s->cop = (struct point3) COP;
@@ -201,6 +203,7 @@ init_cube(struct shape *c)
 	c->center = (struct point3) {0.0, 0.0, 0.0};
 	c->fname = NULL;
 	c->print_vertices = 0;
+	c->print_edges = 1;
 	c->e_density = E_DENSITY;
 	c->occlusion = NONE;
 	c->cop = (struct point3) COP;
@@ -302,10 +305,10 @@ occlude_point(struct shape s, struct point3 point)
 	case APPROX:
 		return occlude_point_approx(s, point);
 
-	case CONVEX:
+	case CONVEX: /* not implemented */
 		return occlude_point_convex(s, point);
 
-	case EXACT: /* currently not implemented */
+	case EXACT: /* not implemented */
 		return 0;
 	}
 
@@ -412,7 +415,7 @@ print_vertices(struct shape s)
 void
 print_shape(struct shape s)
 {
-	if (s.num_e) {
+	if (s.print_edges && s.num_e) {
 		print_edges(s);
 	}
 
@@ -741,8 +744,13 @@ loop(struct shape *s)
 			s->print_vertices = !(s->print_vertices);
 			break;
 
-		/* turn occlusion on or off */
+		/* flip printing of edges */
 		case '2':
+			s->print_edges = !(s->print_edges);
+			break;
+
+		/* turn occlusion on or off */
+		case '3':
 			s->occlusion++;
 			if (s->occlusion > EXACT) {
 				s->occlusion = NONE;

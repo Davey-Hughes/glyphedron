@@ -69,6 +69,7 @@ struct shape {
 	char *fname; /* file name of the shape coordinates */
 
 	int print_vertices;        /* bool whether or not to print vertices */
+	int print_edges;           /* bool whether or not to print edges */
 	enum occ_method occlusion; /* choose which occlusion method to use */
 	struct point3 cop;         /* center of projection */
 };
