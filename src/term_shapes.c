@@ -276,6 +276,22 @@ occlude_point_approx(struct shape s, struct point3 point)
 	return 0;
 }
 
+/*
+ * occlusion method that works for convex shapes
+ *
+ * returns 0 if point should be rendered, else 1
+ */
+int
+occlude_point_convex(struct shape s, struct point3 point)
+{
+	return 0;
+}
+
+/*
+ * chooses which occlusion method to use based on the s.occlusion enum
+ *
+ * returns 0 if point should be rendered, else 1
+ */
 int
 occlude_point(struct shape s, struct point3 point)
 {
@@ -286,11 +302,14 @@ occlude_point(struct shape s, struct point3 point)
 	case APPROX:
 		return occlude_point_approx(s, point);
 
+	case CONVEX:
+		return occlude_point_convex(s, point);
+
 	case EXACT: /* currently not implemented */
-		return occlude_point_approx(s, point);
+		return 0;
 	}
 
-	return 1;
+	return 0;
 }
 
 /*
@@ -593,8 +612,12 @@ loop(struct shape *s)
 			occlusion_type = "approximate";
 			break;
 
+		case CONVEX:
+			occlusion_type = "convex not implemented";
+			break;
+
 		case EXACT:
-			occlusion_type = "exact";
+			occlusion_type = "exact not implemented";
 			break;
 		}
 

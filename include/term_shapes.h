@@ -51,7 +51,8 @@ struct edge {
 enum occ_method {
 	NONE,
 	APPROX,
-	EXACT /* currently not implemented */
+	CONVEX, /* not implemented */
+	EXACT   /* not implemented */
 };
 
 /* a shape/solid object */
@@ -76,6 +77,8 @@ int init_from_file(char *, struct shape *);
 void destroy_shape(struct shape *);
 int init_cube(struct shape *);
 void movexy(double *, double *);
+int occlude_point_approx(struct shape, struct point3);
+int occlude_point_convex(struct shape, struct point3);
 int occlude_point(struct shape, struct point3);
 void print_edges(struct shape);
 void print_vertices(struct shape);
