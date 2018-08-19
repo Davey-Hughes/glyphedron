@@ -197,6 +197,7 @@ init_cube(struct shape *c)
 	c->edges[11] = (struct edge) {{6, 7}};
 
 	c->num_v = 8;
+	c->num_e = 12;
 	c->center = (struct point3) {0.0, 0.0, 0.0};
 	c->fname = NULL;
 	c->print_vertices = 0;
@@ -572,7 +573,6 @@ loop(struct shape *s)
 	keypad(stdscr, TRUE);
 	curs_set(0);
 
-
 	theta = M_PI / 200;
 	dist = 0.1;
 	scale = 1.1;
@@ -605,7 +605,7 @@ loop(struct shape *s)
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 		timespec_diff(&start, &end, &diff);
 		mvprintw(3, 1, "Operation time: %ld.%06ld seconds\n",
-	       	       diff.tv_sec, diff.tv_nsec / 1000);
+			diff.tv_sec, diff.tv_nsec / 1000);
 
 		timespec_avg(&avg_op, &diff, &avg_op);
 
@@ -619,7 +619,7 @@ loop(struct shape *s)
 
 		timespec_diff(&start, &end, &diff);
 		mvprintw(2, 1, "Print time: %ld.%06ld seconds\n",
-	       	       diff.tv_sec, diff.tv_nsec / 1000);
+			diff.tv_sec, diff.tv_nsec / 1000);
 
 		timespec_avg(&avg_print, &diff, &avg_print);
 #endif
