@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <time.h>
 #include <ncurses.h>
@@ -42,14 +43,20 @@
  * correspoinding to the indices of two vertices that describe an edge. Each
  * edge only needs to be described once
  *
- * the next k lines are 3 comma separated positive integer values corresponding
- * to the indices of 3 points that make up a face
+ * the next k lines are comma separated positive integer values corresponding
+ * to the indices of the points that make up a face. It's imperative that the
+ * points go around the face in order, along the edges, so that points across
+ * the face aren't being connected
  */
 int
 init_from_file(char *fname, struct shape *s)
 {
-	int err, num_v, num_e, num_f, e0, e1, f0, f1, f2, i;
+	int err, num_v, num_e, num_f, e0, e1, vi, i, k, cap;
+	void *face_err;
 	double x, y, z;
+	char buf[FACE_VERTS_BUFSIZE];
+	char delimit[] = ", ";
+	char *str;
 
 	FILE *file;
 	file = fopen(fname, "r");
@@ -130,25 +137,52 @@ init_from_file(char *fname, struct shape *s)
 	}
 
 	for (i = 0; i < num_f; ++i) {
-		err = fscanf(file, "%i, %i, %i", &f0, &f1, &f2);
-		if (err == EOF) {
-			fprintf(stderr, "Returned EOF when reading faces in shape file\n");
+		str = fgets(buf, FACE_VERTS_BUFSIZE, file);
+		if (str == NULL) {
 			goto cleanup_faces;
-		} else if (err == 0) {
-			fprintf(stderr, "Zero bytes read when reading faces in shape file\n");
-			goto cleanup_faces;
+		} else if (*buf == '\n') { /* skip the single newline */
+			i--;
+			continue;
 		}
 
-		if (f0 < 0 || f0 > num_v - 1 ||
-		    f1 < 0 || f1 > num_v - 1 ||
-		    f2 < 0 || f2 > num_v - 1) {
-			fprintf(stderr, "Face index out of bounds\n");
-			goto cleanup_faces;
+		k = 0;
+		cap = 8;
+		s->faces[i].face = malloc(sizeof(int) * cap);
+
+		str = strtok(buf, delimit);
+		while (1) {
+			if (k > MAX_FACE_VERTICES) {
+				fprintf(stderr,
+					"number of vertices exceeds max vertices per face\n");
+				goto cleanup_face_vertices;
+			}
+
+			if (k == cap) {
+				cap *= 2;
+				face_err = realloc(s->faces[i].face, sizeof(int) * cap);
+				if (face_err == NULL) {
+					goto cleanup_face_vertices;
+				}
+
+				s->faces[i].face = face_err;
+			}
+
+			vi = atoi(str);
+
+			if (vi < 0 || vi > num_v) {
+				fprintf(stderr, "Face vertex out of bounds\n");
+				goto cleanup_face_vertices;
+			}
+
+			s->faces[i].face[k++] = vi;
+
+			str = strtok(NULL, delimit);
+			if (str == NULL) {
+				break;
+			}
 		}
 
-		s->faces[i].face[0] = f0;
-		s->faces[i].face[1] = f1;
-		s->faces[i].face[2] = f2;
+		s->faces[i].num_v = k;
 	}
 
 	fclose(file);
@@ -172,8 +206,15 @@ init_from_file(char *fname, struct shape *s)
 	s->occlusion = NONE;
 	s->cop = (struct point3) COP;
 
+	s->front_symbol = 'o';
+	s->rear_symbol = '.';
+
 	return 0;
 
+cleanup_face_vertices:
+	for (i = 0; i < num_f; ++i) {
+		free(s->faces[i].face);
+	}
 cleanup_faces:
 	free(s->faces);
 cleanup_edges:
@@ -191,8 +232,15 @@ cleanup_file:
 void
 destroy_shape(struct shape *s)
 {
+	int i;
+
 	free(s->vertices);
 	free(s->edges);
+
+	for (i = 0; i < s->num_f; ++i) {
+		free(s->faces[i].face);
+	}
+
 	free(s->faces);
 }
 
@@ -324,15 +372,207 @@ occlude_point_approx(struct shape s, struct point3 point)
 }
 
 /*
+ * determines whether the point p2 lies on the line segment given by p0 and p1
+ *
+ * returns 1 if true and 0 if false
+ */
+
+int
+on_segment(struct point3 p0, struct point3 p1, struct point3 p2)
+{
+	if (p2.x <= fmax(p0.x, p1.x) && p2.x >= fmin(p0.x, p1.x) &&
+	    p2.y <= fmax(p0.y, p1.y) && p2.y >= fmin(p0.y, p1.y) &&
+	    p2.z <= fmax(p0.z, p1.z) && p2.z >= fmin(p0.z, p1.z)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * returns 0 if p0, p1, p2 are colinear
+ * returns 1 if points are clockwise
+ * returns 2 if points are counterclockwise
+ *
+ * the points are colinear if n = <0, 0, 0>
+ */
+int
+orientation(struct point3 p0, struct point3 p1, struct point3 p2, struct face face)
+{
+	double dot;
+	struct point3 t0, t1, t2;
+
+	/*
+	 * if n ⋅ ((p1 - p0) × (p2 - p0)) < 0 then the points are clockwise
+	 * if n ⋅ ((p1 - p0) × (p2 - p0)) > 0 then the points are counterclockwise
+	 * if n ⋅ ((p1 - p0) × (p2 - p0)) = 0 then the points are colinear
+	 */
+
+	t0.x = p1.x - p0.x;
+	t0.y = p1.y - p0.y;
+	t0.z = p1.z - p0.z;
+
+	t1.x = p2.x - p0.x;
+	t1.y = p2.y - p0.y;
+	t1.z = p2.z - p0.z;
+
+	/* t0 × t1 */
+	t2.x = (t0.y * t1.z) - (t0.z * t1.y);
+	t2.y = (t0.z * t1.x) - (t0.x * t1.z);
+	t2.z = (t0.x * t1.y) - (t0.y * t1.x);
+
+	/* normal ⋅ t2 */
+	dot = (face.normal.x * t2.x) + (face.normal.y * t2.y) + (face.normal.z * t2.z);
+
+	if (dot < 0) {        /* clockwise */
+		return 1;
+	} else if (dot > 0) { /* counterclockwise */
+		return 2;
+	} else {              /* colinear */
+		return 0;
+	}
+}
+
+/*
+ * determine whether these two line segments intersect
+ *
+ * returns 1 if they intersect, 0 if they don't
+ */
+int
+intersects(struct point3 f0, struct point3 f1, struct point3 inter,
+	   struct point3 far, struct face face)
+{
+	int o0, o1, o2, o3;
+
+	/* find orientations for the general and special cases */
+	o0 = orientation(f0, f1, inter, face);
+	o1 = orientation(f0, f1, far, face);
+	o2 = orientation(inter, far, f0, face);
+	o3 = orientation(inter, far, f1, face);
+
+	/* general case */
+	if (o0 != o1 && o2 != o3) {
+		return 1;
+	}
+
+	/* special cases for colinear */
+	/* f0, f1, and inter are colinear and inter lies on the segment f0, f1 */
+	if (o0 == 0 && on_segment(f0, f1, inter)) {
+		return 1;
+	}
+	/* f0, f1, and far are colinear and far lies on the segment f0, f1 */
+	else if (o1 == 0 && on_segment(f0, f1, far)) {
+		return 1;
+	}
+	/* inter, far, and f0 are colinear and f0 lies on the segment inter, far */
+	else if (o2 == 0 && on_segment(inter, far, f0)) {
+		return 1;
+	}
+	/* inter, far, and f1 are colinear and f1 lies on the segment inter, far */
+	else if (o3 == 0 && on_segment(inter, far, f1)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * determines whether a point is inside the polygon named "face"
+ *
+ * returns 1 if the point is inside, and 0 if not
+ */
+
+int
+is_inside(struct shape s, struct point3 inter, struct point3 far, struct face face)
+{
+	int count, i, next_v;
+
+	/*
+	 * count number of intersections from the line segment with the polygon
+	 */
+	count = 0;
+	i = 0;
+	while (1) {
+		/* next vertex */
+		next_v = (i + 1) % face.num_v;
+
+		/*
+		 * first check if the line segment from inter to far intersects
+		 * the edge from the face vertices with indices i and next_v
+		 */
+		if (intersects(s.vertices[face.face[i]],
+			       s.vertices[face.face[next_v]], inter, far, face)) {
+			/*
+			 * if the point inter is colinear with the line segment
+			 * given from i and next_v, check if it lies on the
+			 * segment
+			 */
+			if (orientation(s.vertices[face.face[i]], inter,
+				        s.vertices[face.face[next_v]], face) == 0) {
+				return on_segment(s.vertices[face.face[i]],
+						  s.vertices[face.face[next_v]], inter);
+			}
+
+			count++;
+		}
+
+		i = next_v;
+
+		/* exit condition */
+		if (i == 0) {
+			break;
+		}
+	}
+
+	return count % 2 == 1;
+}
+
+/*
+ * determine whether a point is contained within a given polygon
+ *
+ * for this program, the point comes from the intersection given in
+ * occlude_point_convex(), and we determine whether the point intersects the
+ * plane within the boundaries of the vertices that define the face of the
+ * polyhedron being rendered
+ */
+int
+point_in_polygon(struct shape s, struct point3 inter, struct face face,
+		 struct point3 coeffs, double d)
+{
+	double z;
+
+	/*
+	 * we need a point on the same plane as the face, but far off one side
+	 * to determine how many edges are intersected by the line segment from
+	 * the intersection point and the far off distance point.
+	 *
+	 * using a large x value, and y value of 0, we can determine the z
+	 * value that corresponds to a point on the plane with the equation:
+	 * 	z = (d - ax - by) / c
+	 * We simply use x = 10000 and y = 0, and plug in the coefficients
+	 * passed into this function
+	 */
+
+	z = (d - (coeffs.x * 10000) - (coeffs.y * 0)) / coeffs.z;
+
+	/*
+	 * now the line segment is defined by the points inter and
+	 * {10000, 0, z}
+	 */
+
+	return is_inside(s, inter, (struct point3) {10000, 0, z}, face);
+}
+
+/*
  * occlusion method that works for convex shapes
  *
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point_convex(struct shape s, struct point3 point)
+occlude_point_convex(struct shape s, struct point3 point, struct edge edge)
 {
-	int i;
-	double x0, y0, z0, x1, y1, z1, x2, y2, z2, d, t, dist0, dist1;
+	int i, k, next_v, flag;
+	double x0, y0, z0, x1, y1, z1, x2, y2, z2, d, t;
 	struct point3 u, v0, v1, n, inter;
 
 	/*
@@ -342,25 +582,62 @@ occlude_point_convex(struct shape s, struct point3 point)
 	 *
 	 * note: precomputing the equations for the faces would speed this up
 	 */
+
+	flag = 0;
 	for (i = 0; i < s.num_f; ++i) {
+
+		/*
+		 * if the point is on an edge that constitutes this face, don't
+		 * consider this face
+		 *
+		 * also check specifically if the edge passed in is invalid (in
+		 * the case where the point being tested for occlusion is a
+		 * vertex)
+		 */
+
+		if (edge.edge[0] < 0 || edge.edge[1] < 0) {
+			continue;
+		}
+
+		k = 0;
+		while (1) {
+			next_v = (k + 1) % s.faces[i].num_v;
+
+			if ((edge.edge[0] == s.faces[i].face[k] &&
+			     edge.edge[1] == s.faces[i].face[next_v]) ||
+			    (edge.edge[0] == s.faces[i].face[next_v] &&
+			     edge.edge[1] == s.faces[i].face[k])) {
+				flag = 1;
+				break;
+			}
+
+			k = next_v;
+
+			if (k == 0) {
+				break;
+			}
+		}
+
+		if (flag) {
+			flag = 0;
+			continue;
+		}
+
 		/*
 		 * two vectors from the points that define the plane-face of
 		 * the object
 		 */
 		u = s.vertices[s.faces[i].face[0]];
-		/* u = (struct point3) {1, -2, 0}; */
 		x0 = u.x;
 		y0 = u.y;
 		z0 = u.z;
 
 		u = s.vertices[s.faces[i].face[1]];
-		/* u = (struct point3) {3, 1, 4}; */
 		x1 = u.x;
 		y1 = u.y;
 		z1 = u.z;
 
 		u = s.vertices[s.faces[i].face[2]];
-		/* u = (struct point3) {0, -1, 2}; */
 		x2 = u.x;
 		y2 = u.y;
 		z2 = u.z;
@@ -378,6 +655,10 @@ occlude_point_convex(struct shape s, struct point3 point)
 		n.y = (v0.z * v1.x) - (v0.x * v1.z);
 		n.z = (v0.x * v1.y) - (v0.y * v1.x);
 
+		s.faces[i].normal.x = n.x;
+		s.faces[i].normal.y = n.y;
+		s.faces[i].normal.z = n.z;
+
 		/*
 		 * with the parameterized equation of the plane given as:
 		 * 	ax + by + cz = d
@@ -386,8 +667,6 @@ occlude_point_convex(struct shape s, struct point3 point)
 		 * z are the x, y, and z from any one of the intial points
 		 */
 		d = (n.x * x0) + (n.y * y0) + (n.z * z0);
-
-		/* TODO: determine if line is parallel to plane or not */
 
 		/*
 		 * the intersection of the line between the point we're
@@ -402,9 +681,9 @@ occlude_point_convex(struct shape s, struct point3 point)
 		 */
 
 		t = (d - (n.x * point.x + n.y * point.y + n.z * point.z)) /
-			(n.x * (s.cop.x - point.x) +
-			 n.y * (s.cop.y - point.y) +
-			 n.z * (s.cop.z - point.z));
+			 (n.x * (s.cop.x - point.x) +
+			  n.y * (s.cop.y - point.y) +
+			  n.z * (s.cop.z - point.z));
 
 		/* inter is the intersection point */
 		inter.x = (point.x + (t * (s.cop.x - point.x)));
@@ -412,54 +691,19 @@ occlude_point_convex(struct shape s, struct point3 point)
 		inter.z = (point.z + (t * (s.cop.z - point.z)));
 
 		/*
- 		 * APPROXIMATION
- 		 *
-		 * if the intersection point is far away from the shape, don't
-		 * consider it.
-		 *
-		 * Far away is defined as being further away from center of the
-		 * shape than a point on the shape. (Should be from the
-		 * furthest away point, but this is currently not implemeted)
+		 * if the intersection is not on a face, loop again to check
+		 * the next face
 		 */
-
-		/* distance between center and intersection */
-		x0 = s.center.x - inter.x;
-		y0 = s.center.y - inter.y;
-		z0 = s.center.z - inter.z;
-		dist0 = sqrt((x0 * x0) + (y0 * y0) + (z0 * z0));
-
-		/* distance between center and a point on the shape */
-		x1 = s.center.x - s.vertices[0].x;
-		y1 = s.center.y - s.vertices[0].y;
-		z1 = s.center.z - s.vertices[0].z;
-		dist1 = sqrt((x1 * x1) + (y1 * y1) + (z1 * z1));
-
-		/* fprintf(stderr, "%lf, %lf, %lf %lf, %lf\n", point.x, point.y, point.z, dist0, dist1); */
-
-		if (dist0 > dist1) {
+		if (!point_in_polygon(s, inter, s.faces[i], n, d)) {
 			continue;
 		}
 
 		/*
-		 * if the distance between the intersection point and the cop
-		 * is smaller than the distance between the point we're
-		 * evaluating and the cop, the point should be occluded (not
-		 * rendered)
+		 * if the point is on a face and the intersection is in front
+		 * of the point (determined just by z value), then occlude the
+		 * point
 		 */
-
-		/* distance between cop and intersection */
-		x0 = s.cop.x - inter.x;
-		y0 = s.cop.y - inter.y;
-		z0 = s.cop.z - inter.z;
-		dist0 = sqrt((x0 * x0) + (y0 * y0) + (z0 * z0));
-
-		/* distance between cop and point we're evaluating */
-		x1 = s.cop.x - point.x;
-		y1 = s.cop.y - point.y;
-		z1 = s.cop.z - point.z;
-		dist1 = sqrt((x1 * x1) + (y1 * y1) + (z1 * z1));
-
-		if (dist0 < dist1) {
+		if (point.z < inter.z) {
 			return 1;
 		}
 	}
@@ -473,7 +717,7 @@ occlude_point_convex(struct shape s, struct point3 point)
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point(struct shape s, struct point3 point)
+occlude_point(struct shape s, struct point3 point, struct edge edge)
 {
 	switch (s.occlusion) {
 	case NONE:
@@ -483,7 +727,7 @@ occlude_point(struct shape s, struct point3 point)
 		return occlude_point_approx(s, point);
 
 	case CONVEX:
-		return occlude_point_convex(s, point);
+		return occlude_point_convex(s, point, edge);
 
 	case EXACT: /* not implemented */
 		return 0;
@@ -537,7 +781,8 @@ print_edges(struct shape s)
 			 * if the occlusion flag is set and a point shouldn't
 			 * be occluded, the rest of the loop prints the point
 			 */
-			if (s.occlusion && occlude_point(s, (struct point3) {x, y, z})) {
+			if (s.occlusion &&
+				occlude_point(s, (struct point3) {x, y, z}, s.edges[i])) {
 				continue;
 			}
 
@@ -551,11 +796,13 @@ print_edges(struct shape s)
 			 * a negative z value (therefore are "behind" the
 			 * xy-plane) are printed with a "." instead of a "o"
 			 */
+#if USE_NCURSES
 			if (z < 0) {
-				mvprintw(movey, movex, "%s", ".");
+				mvprintw(movey, movex, "%c", s.rear_symbol);
 			} else {
-				mvprintw(movey, movex, "%s", "o");
+				mvprintw(movey, movex, "%c", s.front_symbol);
 			}
+#endif
 		}
 	}
 }
@@ -572,17 +819,26 @@ print_vertices(struct shape s)
 	int i;
 	double x, y, z;
 
+	struct edge edge;
+
+	/* specifically invalid edge */
+	edge.edge[0] = -1;
+	edge.edge[1] = -1;
+
 	for (i = s.num_v - 1; i >= 0; --i) {
 		x = s.vertices[i].x;
 		y = s.vertices[i].y;
 		z = s.vertices[i].z;
 
-		if (s.occlusion && occlude_point(s, (struct point3) {x, y, z})) {
+		if (s.occlusion &&
+			occlude_point(s, (struct point3) {x, y, z}, edge)) {
 			continue;
 		}
 
 		movexy(&x, &y);
+#if USE_NCURSES
 		mvprintw(y, x, "%i", i);
+#endif
 	}
 }
 
@@ -753,7 +1009,10 @@ loop(struct shape *s)
 {
 	int c;
 	double theta, dist, scale;
+
+#if USE_NCURSES
 	char *occlusion_type = "";
+#endif
 
 #if TIMING
 	struct timespec start, end, diff, avg_op, avg_print;
@@ -765,12 +1024,14 @@ loop(struct shape *s)
 	avg_print.tv_nsec = -1;
 #endif
 
+#if USE_NCURSES
 	/* start ncurses mode */
 	initscr();
 	noecho();
 	cbreak();
 	keypad(stdscr, TRUE);
 	curs_set(0);
+#endif
 
 	theta = M_PI / 200;
 	dist = 0.1;
@@ -781,6 +1042,8 @@ loop(struct shape *s)
 #endif
 
 	while(1) {
+
+#if USE_NCURSES
 		wclear(stdscr);
 
 		switch (s->occlusion) {
@@ -794,21 +1057,26 @@ loop(struct shape *s)
 
 		case CONVEX:
 			occlusion_type = "convex";
+			s->front_symbol = '.';
 			break;
 
 		case EXACT:
 			occlusion_type = "exact not implemented";
+			s->front_symbol = 'o';
 			break;
 		}
-
 		mvprintw(1, 1, "Occlusion type: %s", occlusion_type);
+#endif
 
 
 #if TIMING
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 		timespec_diff(&start, &end, &diff);
+
+# if USE_NCURSES
 		mvprintw(3, 1, "Operation time: %ld.%06ld seconds\n",
 			diff.tv_sec, diff.tv_nsec / 1000);
+# endif
 
 		timespec_avg(&avg_op, &diff, &avg_op);
 
@@ -821,13 +1089,21 @@ loop(struct shape *s)
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
 		timespec_diff(&start, &end, &diff);
+
+# if USE_NCURSES
 		mvprintw(2, 1, "Print time: %ld.%06ld seconds\n",
 			diff.tv_sec, diff.tv_nsec / 1000);
+# endif
 
 		timespec_avg(&avg_print, &diff, &avg_print);
 #endif
 
+
+#if USE_NCURSES
 		c = getch();
+#else
+		c = getchar();
+#endif
 
 #if TIMING
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
@@ -835,8 +1111,11 @@ loop(struct shape *s)
 
 		switch(c) {
 		case 'q':
+
+#if USE_NCURSES
 			/* end ncurses mode */
 			endwin();
+#endif
 
 #if TIMING
 			printf("Average operation time: %ld.%06ld seconds\n",

@@ -15,6 +15,9 @@
  *     with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifndef TERM_SHAPES_H
+#define TERM_SHAPES_H
+
 #ifndef TIMING
 #define TIMING 1
 #endif
@@ -23,14 +26,18 @@
 #include "timing.h"
 #endif
 
-#ifndef TERM_SHAPES_H
-#define TERM_SHAPES_H
+/* used for valgrind testing, since ncurses shows a lot of errors in valgrind */
+#ifndef USE_NCURSES
+#define USE_NCURSES 1
+#endif
 
 #define M_PI 3.14159265358979323846264338327950288
 
 #define MAX_VERTICES 1024 * 10
 #define MAX_EDGES 1024 * 10
 #define MAX_FACES 1024 * 10
+#define MAX_FACE_VERTICES 1024 * 10
+#define FACE_VERTS_BUFSIZE 1024 * 2
 
 #define SCALE 0.4
 #define E_DENSITY 50
@@ -50,7 +57,9 @@ struct edge {
 
 /* edge as the index of three points */
 struct face {
-	int face[3];
+	int num_v;            /* number of vertices on this face */
+	struct point3 normal; /* normal vector to this face */
+	int *face;            /* array of indices corresponding to vertices on this face */
 };
 
 /* choose which occlusion method to use */
@@ -80,15 +89,24 @@ struct shape {
 	int print_edges;           /* bool whether or not to print edges */
 	enum occ_method occlusion; /* choose which occlusion method to use */
 	struct point3 cop;         /* center of projection */
+
+	char front_symbol;
+	char rear_symbol;
 };
+
+/* prototypes */
 
 int init_from_file(char *, struct shape *);
 void destroy_shape(struct shape *);
 int init_cube(struct shape *);
 void movexy(double *, double *);
+int orientation(struct point3, struct point3, struct point3, struct face);
+int intersects(struct point3, struct point3, struct point3, struct point3, struct face);
+int is_inside(struct shape, struct point3, struct point3, struct face);
+int point_in_polygon(struct shape, struct point3, struct face, struct point3, double);
 int occlude_point_approx(struct shape, struct point3);
-int occlude_point_convex(struct shape, struct point3);
-int occlude_point(struct shape, struct point3);
+int occlude_point_convex(struct shape, struct point3, struct edge);
+int occlude_point(struct shape, struct point3, struct edge);
 void print_edges(struct shape);
 void print_vertices(struct shape);
 void print_shape(struct shape);
