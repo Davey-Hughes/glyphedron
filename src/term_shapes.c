@@ -1212,6 +1212,23 @@ loop(struct shape *s)
 				s->occlusion = NONE;
 			}
 
+			/*
+			 * because the icosahedron and dodecahedron are put in
+			 * using an approximation of phi, do a quick set of
+			 * rotations to fix some apparent floating point
+			 * precision weirdness with occlusion
+			 */
+
+			if (s->occlusion == CONVEX) {
+				rotate_shape(theta, 'x', s);
+				rotate_shape(theta, 'y', s);
+				rotate_shape(theta, 'z', s);
+
+				rotate_shape(-theta, 'x', s);
+				rotate_shape(-theta, 'y', s);
+				rotate_shape(-theta, 'z', s);
+			}
+
 			break;
 
 		/* **CHANGE EDGE DENSITY** */

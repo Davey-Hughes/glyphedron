@@ -19,7 +19,7 @@
 #define TERM_SHAPES_H
 
 #ifndef TIMING
-#define TIMING 1
+#define TIMING 0
 #endif
 
 #if TIMING
