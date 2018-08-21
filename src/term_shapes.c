@@ -297,6 +297,8 @@ init_cube(struct shape *c)
 	c->e_density = E_DENSITY;
 	c->occlusion = NONE;
 	c->cop = (struct point3) COP;
+	c->front_symbol = 'o';
+	c->rear_symbol = '.';
 
 	return 0;
 
