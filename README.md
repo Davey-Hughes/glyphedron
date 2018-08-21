@@ -55,9 +55,6 @@ Examples of the shape input file are in the shapes directory. It is possible to
 input a file that describes 0 edges, but 0 must be specified in the first line.
 
 ## Comments
-Currently, the occlusion is just an approximation (described in more details in
-the code). Real occlusion is somewhat more difficult, but could be introduced
-in a later update. The occlusion approximation also cannot handle concave
-shapes in any reasonable way, but without shading concave shapes probably won't
-look particularly good anyway. However, wireframes of any 3D shape that can be
-described by a set of vertices and edges can be rendered.
+Occlusion for convex shapes has been added, as shown in the image below:
+
+![alt text](https://github.com/Davey-Hughes/term-shapes/blob/master/images/dodecahedron_occlusion.png "dodecahedron_occlusion")
