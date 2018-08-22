@@ -29,6 +29,7 @@
 #endif
 
 #include "term_shapes.h"
+#include "vector.h"
 
 /*
  * initialize an object from a file
@@ -85,7 +86,7 @@ init_from_file(char *fname, struct shape *s)
 	s->num_e = num_e;
 	s->num_f = num_f;
 
-	s->vertices = malloc(sizeof(struct point3) * s->num_v);
+	s->vertices = malloc(sizeof(point3) * s->num_v);
 	if (s->vertices == NULL) {
 		goto cleanup_file;
 	}
@@ -187,7 +188,7 @@ init_from_file(char *fname, struct shape *s)
 
 	fclose(file);
 
-	s->center = (struct point3) {0.0, 0.0, 0.0};
+	s->center = (point3) {0.0, 0.0, 0.0};
 	s->fname = fname;
 
 	/*
@@ -204,7 +205,7 @@ init_from_file(char *fname, struct shape *s)
 
 	s->e_density = E_DENSITY;
 	s->occlusion = NONE;
-	s->cop = (struct point3) COP;
+	s->cop = (point3) COP;
 
 	s->front_symbol = 'o';
 	s->rear_symbol = '.';
@@ -250,7 +251,7 @@ destroy_shape(struct shape *s)
 int
 init_cube(struct shape *c)
 {
-	c->vertices = malloc(sizeof(struct point3) * 8);
+	c->vertices = malloc(sizeof(point3) * 8);
 	if (c->vertices == NULL) {
 		return -1;
 	}
@@ -265,14 +266,14 @@ init_cube(struct shape *c)
 		goto cleanup_edges;
 	}
 
-	c->vertices[0] = (struct point3) {1.0, 1.0, 1.0};
-	c->vertices[1] = (struct point3) {-1.0, 1.0, 1.0};
-	c->vertices[2] = (struct point3) {1.0, -1.0, 1.0};
-	c->vertices[3] = (struct point3) {-1.0, -1.0, 1.0};
-	c->vertices[4] = (struct point3) {1.0, 1.0, -1.0};
-	c->vertices[5] = (struct point3) {-1.0, 1.0, -1.0};
-	c->vertices[6] = (struct point3) {1.0, -1.0, -1.0};
-	c->vertices[7] = (struct point3) {-1.0, -1.0, -1.0};
+	c->vertices[0] = (point3) {1.0, 1.0, 1.0};
+	c->vertices[1] = (point3) {-1.0, 1.0, 1.0};
+	c->vertices[2] = (point3) {1.0, -1.0, 1.0};
+	c->vertices[3] = (point3) {-1.0, -1.0, 1.0};
+	c->vertices[4] = (point3) {1.0, 1.0, -1.0};
+	c->vertices[5] = (point3) {-1.0, 1.0, -1.0};
+	c->vertices[6] = (point3) {1.0, -1.0, -1.0};
+	c->vertices[7] = (point3) {-1.0, -1.0, -1.0};
 
 	c->edges[0] = (struct edge) {{0, 1}};
 	c->edges[1] = (struct edge) {{0, 2}};
@@ -290,13 +291,13 @@ init_cube(struct shape *c)
 	c->num_v = 8;
 	c->num_e = 12;
 	c->num_f = 0;
-	c->center = (struct point3) {0.0, 0.0, 0.0};
+	c->center = (point3) {0.0, 0.0, 0.0};
 	c->fname = NULL;
 	c->print_vertices = 0;
 	c->print_edges = 1;
 	c->e_density = E_DENSITY;
 	c->occlusion = NONE;
-	c->cop = (struct point3) COP;
+	c->cop = (point3) COP;
 	c->front_symbol = 'o';
 	c->rear_symbol = '.';
 
@@ -341,28 +342,25 @@ movexy(double *x, double *y)
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point_approx(struct shape s, struct point3 point)
+occlude_point_approx(struct shape s, point3 point)
 {
-	double x0, y0, z0, x1, y1, z1, dprod, mag0, mag1, theta;
+	double dprod, mag0, mag1, theta;
+	point3 v0, v1;
 
 	/* vector from point to the center of solid */
-	x0 = s.center.x - point.x;
-	y0 = s.center.y - point.y;
-	z0 = s.center.z - point.z;
+	v0 = vector3_sub(s.center, point);
 
 	/* vector from point to the center of projection */
-	x1 = s.cop.x - point.x;
-	y1 = s.cop.y - point.y;
-	z1 = s.cop.z - point.z;
+	v1 = vector3_sub(s.cop, point);
 
 	/*
 	 * angle between two vectors is given by the arc cosine of the dot
 	 * product of the two vectors divided by the product of magnitudes of
 	 * the vectors
 	 */
-	dprod = (x0 * x1) + (y0 * y1) + (z0 * z1);
-	mag0 = sqrt((x0 * x0) + (y0 * y0) + (z0 * z0));
-	mag1 = sqrt((x1 * x1) + (y1 * y1) + (z1 * z1));
+	dprod = vector3_dot(v0, v1);
+	mag0 = vector3_mag(v0);
+	mag1 = vector3_mag(v1);
 
 	theta = acos(dprod / (mag0 * mag1));
 
@@ -380,7 +378,7 @@ occlude_point_approx(struct shape s, struct point3 point)
  */
 
 int
-on_segment(struct point3 p0, struct point3 p1, struct point3 p2)
+on_segment(point3 p0, point3 p1, point3 p2)
 {
 	if (p2.x <= fmax(p0.x, p1.x) && p2.x >= fmin(p0.x, p1.x) &&
 	    p2.y <= fmax(p0.y, p1.y) && p2.y >= fmin(p0.y, p1.y) &&
@@ -399,10 +397,10 @@ on_segment(struct point3 p0, struct point3 p1, struct point3 p2)
  * the points are colinear if n = <0, 0, 0>
  */
 int
-orientation(struct point3 p0, struct point3 p1, struct point3 p2, struct face face)
+orientation(point3 p0, point3 p1, point3 p2, struct face face)
 {
 	double dot;
-	struct point3 t0, t1, t2;
+	point3 t0, t1, t2;
 
 	/*
 	 * if n ⋅ ((p1 - p0) × (p2 - p0)) < 0 then the points are clockwise
@@ -410,21 +408,14 @@ orientation(struct point3 p0, struct point3 p1, struct point3 p2, struct face fa
 	 * if n ⋅ ((p1 - p0) × (p2 - p0)) = 0 then the points are colinear
 	 */
 
-	t0.x = p1.x - p0.x;
-	t0.y = p1.y - p0.y;
-	t0.z = p1.z - p0.z;
-
-	t1.x = p2.x - p0.x;
-	t1.y = p2.y - p0.y;
-	t1.z = p2.z - p0.z;
+	t0 = vector3_sub(p1, p0);
+	t1 = vector3_sub(p2, p0);
 
 	/* t0 × t1 */
-	t2.x = (t0.y * t1.z) - (t0.z * t1.y);
-	t2.y = (t0.z * t1.x) - (t0.x * t1.z);
-	t2.z = (t0.x * t1.y) - (t0.y * t1.x);
+	t2 = vector3_cross(t0, t1);
 
 	/* normal ⋅ t2 */
-	dot = (face.normal.x * t2.x) + (face.normal.y * t2.y) + (face.normal.z * t2.z);
+	dot = vector3_dot(face.normal, t2);
 
 	if (dot < 0) {        /* clockwise */
 		return 1;
@@ -441,8 +432,8 @@ orientation(struct point3 p0, struct point3 p1, struct point3 p2, struct face fa
  * returns 1 if they intersect, 0 if they don't
  */
 int
-intersects(struct point3 f0, struct point3 f1, struct point3 inter,
-	   struct point3 far, struct face face)
+intersects(point3 f0, point3 f1, point3 inter,
+	   point3 far, struct face face)
 {
 	int o0, o1, o2, o3;
 
@@ -485,7 +476,7 @@ intersects(struct point3 f0, struct point3 f1, struct point3 inter,
  */
 
 int
-is_inside(struct shape s, struct point3 inter, struct point3 far, struct face face)
+is_inside(struct shape s, point3 inter, point3 far, struct face face)
 {
 	int count, i, next_v;
 
@@ -538,8 +529,8 @@ is_inside(struct shape s, struct point3 inter, struct point3 far, struct face fa
  * polyhedron being rendered
  */
 int
-point_in_polygon(struct shape s, struct point3 inter, struct face face,
-		 struct point3 coeffs, double d)
+point_in_polygon(struct shape s, point3 inter, struct face face,
+		 point3 coeffs, double d)
 {
 	double z;
 
@@ -562,7 +553,7 @@ point_in_polygon(struct shape s, struct point3 inter, struct face face,
 	 * {10000, 0, z}
 	 */
 
-	return is_inside(s, inter, (struct point3) {10000, 0, z}, face);
+	return is_inside(s, inter, (point3) {10000, 0, z}, face);
 }
 
 /*
@@ -571,11 +562,11 @@ point_in_polygon(struct shape s, struct point3 inter, struct face face,
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point_convex(struct shape s, struct point3 point, struct edge edge)
+occlude_point_convex(struct shape s, point3 point, struct edge edge)
 {
 	int i, k, next_v, flag;
-	double x0, y0, z0, x1, y1, z1, x2, y2, z2, d, t;
-	struct point3 u, v0, v1, n, inter;
+	double d, t;
+	point3 v0, v1, n, inter;
 
 	/*
 	 * iterate through every face in the shape and determine whether the
@@ -629,33 +620,13 @@ occlude_point_convex(struct shape s, struct point3 point, struct edge edge)
 		 * two vectors from the points that define the plane-face of
 		 * the object
 		 */
-		u = s.vertices[s.faces[i].face[0]];
-		x0 = u.x;
-		y0 = u.y;
-		z0 = u.z;
-
-		u = s.vertices[s.faces[i].face[1]];
-		x1 = u.x;
-		y1 = u.y;
-		z1 = u.z;
-
-		u = s.vertices[s.faces[i].face[2]];
-		x2 = u.x;
-		y2 = u.y;
-		z2 = u.z;
-
-		v0.x = x0 - x1;
-		v0.y = y0 - y1;
-		v0.z = z0 - z1;
-
-		v1.x = x0 - x2;
-		v1.y = y0 - y2;
-		v1.z = z0 - z2;
+		v0 = vector3_sub(s.vertices[s.faces[i].face[0]],
+				 s.vertices[s.faces[i].face[1]]);
+		v1 = vector3_sub(s.vertices[s.faces[i].face[0]],
+				 s.vertices[s.faces[i].face[2]]);
 
 		/* n is the cross product of the two vectors */
-		n.x = (v0.y * v1.z) - (v0.z * v1.y);
-		n.y = (v0.z * v1.x) - (v0.x * v1.z);
-		n.z = (v0.x * v1.y) - (v0.y * v1.x);
+		n = vector3_cross(v0, v1);
 
 		s.faces[i].normal.x = n.x;
 		s.faces[i].normal.y = n.y;
@@ -668,7 +639,7 @@ occlude_point_convex(struct shape s, struct point3 point, struct edge edge)
 		 * and d is given by solving ax + by + cz = 0, where x, y, and
 		 * z are the x, y, and z from any one of the intial points
 		 */
-		d = (n.x * x0) + (n.y * y0) + (n.z * z0);
+		d = vector3_dot(n, s.vertices[s.faces[i].face[0]]);
 
 		/*
 		 * the intersection of the line between the point we're
@@ -719,7 +690,7 @@ occlude_point_convex(struct shape s, struct point3 point, struct edge edge)
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point(struct shape s, struct point3 point, struct edge edge)
+occlude_point(struct shape s, point3 point, struct edge edge)
 {
 	switch (s.occlusion) {
 	case NONE:
@@ -746,8 +717,8 @@ void
 print_edges(struct shape s)
 {
 	int i, k;
-	double x0, y0, z0, x1, y1, z1, v_len, x, y, z, movex, movey;
-	struct point3 v, u;
+	double x0, y0, z0, v_len, x, y, z, movex, movey;
+	point3 v, u;
 
 	/* iterates over the edges */
 	for (i = s.num_e - 1; i >= 0; --i) {
@@ -756,17 +727,13 @@ print_edges(struct shape s)
 		y0 = v.y;
 		z0 = v.z;
 
-		v = s.vertices[s.edges[i].edge[1]];
-		x1 = v.x;
-		y1 = v.y;
-		z1 = v.z;
-
 		/* v is the vector given by two points */
-		v = (struct point3) {x1 - x0, y1 - y0, z1 - z0};
-		v_len = sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z));
+		v = vector3_sub(s.vertices[s.edges[i].edge[1]],
+				s.vertices[s.edges[i].edge[0]]);
+		v_len = vector3_mag(v);
 
-		/* u is the normal vector from v */
-		u = (struct point3) {v.x / v_len, v.y / v_len, v.z / v_len};
+		/* u is the unit vector from v */
+		u = vector3_unit(v);
 
 		/*
 		 * prints points along the edge
@@ -784,7 +751,7 @@ print_edges(struct shape s)
 			 * be occluded, the rest of the loop prints the point
 			 */
 			if (s.occlusion &&
-				occlude_point(s, (struct point3) {x, y, z}, s.edges[i])) {
+				occlude_point(s, (point3) {x, y, z}, s.edges[i])) {
 				continue;
 			}
 
@@ -833,7 +800,7 @@ print_vertices(struct shape s)
 		z = s.vertices[i].z;
 
 		if (s.occlusion &&
-			occlude_point(s, (struct point3) {x, y, z}, edge)) {
+			occlude_point(s, (point3) {x, y, z}, edge)) {
 			continue;
 		}
 
@@ -931,17 +898,9 @@ scale_shape(double mag, struct shape *s)
 	int i;
 
 	for (i = 0; i < s->num_v; ++i) {
-		s->vertices[i].x -= s->center.x;
-		s->vertices[i].y -= s->center.y;
-		s->vertices[i].z -= s->center.z;
-
-		s->vertices[i].x *= mag;
-		s->vertices[i].y *= mag;
-		s->vertices[i].z *= mag;
-
-		s->vertices[i].x += s->center.x;
-		s->vertices[i].y += s->center.y;
-		s->vertices[i].z += s->center.z;
+		s->vertices[i] = vector3_sub(s->vertices[i], s->center);
+		s->vertices[i] = vector3_mult(s->vertices[i], mag);
+		s->vertices[i] = vector3_add(s->vertices[i], s->center);
 	}
 }
 

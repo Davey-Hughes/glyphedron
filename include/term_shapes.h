@@ -19,12 +19,14 @@
 #define TERM_SHAPES_H
 
 #ifndef TIMING
-#define TIMING 0
+#define TIMING 1
 #endif
 
 #if TIMING
 #include "timing.h"
 #endif
+
+#include "vector.h"
 
 /* used for valgrind testing, since ncurses shows a lot of errors in valgrind */
 #ifndef USE_NCURSES
@@ -43,12 +45,7 @@
 #define E_DENSITY 50
 #define COP {0, 0, 10000}
 
-/* point in 3 dimensions */
-struct point3 {
-	double x;
-	double y;
-	double z;
-};
+typedef struct vector3 point3;
 
 /* edge as the index of two points */
 struct edge {
@@ -58,7 +55,7 @@ struct edge {
 /* edge as the index of three points */
 struct face {
 	int num_v;            /* number of vertices on this face */
-	struct point3 normal; /* normal vector to this face */
+	point3 normal; /* normal vector to this face */
 	int *face;            /* array of indices corresponding to vertices on this face */
 };
 
@@ -77,9 +74,9 @@ struct shape {
 	int num_f;     /* number of faces */
 	int e_density; /* number of points to draw along eatch edge */
 
-	struct point3 center; /* center of the shape */
+	point3 center; /* center of the shape */
 
-	struct point3 *vertices; /* list of vertices */
+	point3 *vertices; /* list of vertices */
 	struct edge *edges;      /* list of edges */
 	struct face *faces;      /* list of faces */
 
@@ -88,7 +85,7 @@ struct shape {
 	int print_vertices;        /* bool whether or not to print vertices */
 	int print_edges;           /* bool whether or not to print edges */
 	enum occ_method occlusion; /* choose which occlusion method to use */
-	struct point3 cop;         /* center of projection */
+	point3 cop;         /* center of projection */
 
 	char front_symbol;
 	char rear_symbol;
@@ -100,13 +97,13 @@ int init_from_file(char *, struct shape *);
 void destroy_shape(struct shape *);
 int init_cube(struct shape *);
 void movexy(double *, double *);
-int orientation(struct point3, struct point3, struct point3, struct face);
-int intersects(struct point3, struct point3, struct point3, struct point3, struct face);
-int is_inside(struct shape, struct point3, struct point3, struct face);
-int point_in_polygon(struct shape, struct point3, struct face, struct point3, double);
-int occlude_point_approx(struct shape, struct point3);
-int occlude_point_convex(struct shape, struct point3, struct edge);
-int occlude_point(struct shape, struct point3, struct edge);
+int orientation(point3, point3, point3, struct face);
+int intersects(point3, point3, point3, point3, struct face);
+int is_inside(struct shape, point3, point3, struct face);
+int point_in_polygon(struct shape, point3, struct face, point3, double);
+int occlude_point_approx(struct shape, point3);
+int occlude_point_convex(struct shape, point3, struct edge);
+int occlude_point(struct shape, point3, struct edge);
 void print_edges(struct shape);
 void print_vertices(struct shape);
 void print_shape(struct shape);
