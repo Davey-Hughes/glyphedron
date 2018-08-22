@@ -30,7 +30,7 @@
 
 /* used for valgrind testing, since ncurses shows a lot of errors in valgrind */
 #ifndef USE_NCURSES
-#define USE_NCURSES 1
+#define USE_NCURSES 0
 #endif
 
 #define M_PI 3.14159265358979323846264338327950288
@@ -54,9 +54,9 @@ struct edge {
 
 /* edge as the index of three points */
 struct face {
-	int num_v;            /* number of vertices on this face */
+	int num_v;     /* number of vertices on this face */
 	point3 normal; /* normal vector to this face */
-	int *face;            /* array of indices corresponding to vertices on this face */
+	int *face;     /* array of indices corresponding to vertices on this face */
 };
 
 /* choose which occlusion method to use */
@@ -99,14 +99,14 @@ int init_cube(struct shape *);
 void movexy(double *, double *);
 int orientation(point3, point3, point3, struct face);
 int intersects(point3, point3, point3, point3, struct face);
-int is_inside(struct shape, point3, point3, struct face);
-int point_in_polygon(struct shape, point3, struct face, point3, double);
-int occlude_point_approx(struct shape, point3);
-int occlude_point_convex(struct shape, point3, struct edge);
-int occlude_point(struct shape, point3, struct edge);
-void print_edges(struct shape);
-void print_vertices(struct shape);
-void print_shape(struct shape);
+int is_inside(struct shape *, point3, point3, struct face);
+int point_in_polygon(struct shape *, point3, struct face, point3, double);
+int occlude_point_approx(struct shape *, point3);
+int occlude_point_convex(struct shape *, point3, struct edge);
+int occlude_point(struct shape *, point3, struct edge);
+void print_edges(struct shape *);
+void print_vertices(struct shape *);
+void print_shape(struct shape *);
 void rotate_shape(double, char, struct shape *);
 void scale_shape(double, struct shape *);
 void translate_shape(double, char, struct shape *);

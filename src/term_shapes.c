@@ -342,16 +342,16 @@ movexy(double *x, double *y)
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point_approx(struct shape s, point3 point)
+occlude_point_approx(struct shape *s, point3 point)
 {
 	double dprod, mag0, mag1, theta;
 	point3 v0, v1;
 
 	/* vector from point to the center of solid */
-	v0 = vector3_sub(s.center, point);
+	v0 = vector3_sub(s->center, point);
 
 	/* vector from point to the center of projection */
-	v1 = vector3_sub(s.cop, point);
+	v1 = vector3_sub(s->cop, point);
 
 	/*
 	 * angle between two vectors is given by the arc cosine of the dot
@@ -476,7 +476,7 @@ intersects(point3 f0, point3 f1, point3 inter,
  */
 
 int
-is_inside(struct shape s, point3 inter, point3 far, struct face face)
+is_inside(struct shape *s, point3 inter, point3 far, struct face face)
 {
 	int count, i, next_v;
 
@@ -493,17 +493,17 @@ is_inside(struct shape s, point3 inter, point3 far, struct face face)
 		 * first check if the line segment from inter to far intersects
 		 * the edge from the face vertices with indices i and next_v
 		 */
-		if (intersects(s.vertices[face.face[i]],
-			       s.vertices[face.face[next_v]], inter, far, face)) {
+		if (intersects(s->vertices[face.face[i]],
+			       s->vertices[face.face[next_v]], inter, far, face)) {
 			/*
 			 * if the point inter is colinear with the line segment
 			 * given from i and next_v, check if it lies on the
 			 * segment
 			 */
-			if (orientation(s.vertices[face.face[i]], inter,
-				        s.vertices[face.face[next_v]], face) == 0) {
-				return on_segment(s.vertices[face.face[i]],
-						  s.vertices[face.face[next_v]], inter);
+			if (orientation(s->vertices[face.face[i]], inter,
+				        s->vertices[face.face[next_v]], face) == 0) {
+				return on_segment(s->vertices[face.face[i]],
+						  s->vertices[face.face[next_v]], inter);
 			}
 
 			count++;
@@ -529,7 +529,7 @@ is_inside(struct shape s, point3 inter, point3 far, struct face face)
  * polyhedron being rendered
  */
 int
-point_in_polygon(struct shape s, point3 inter, struct face face,
+point_in_polygon(struct shape *s, point3 inter, struct face face,
 		 point3 coeffs, double d)
 {
 	double z;
@@ -562,7 +562,7 @@ point_in_polygon(struct shape s, point3 inter, struct face face,
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point_convex(struct shape s, point3 point, struct edge edge)
+occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 {
 	int i, k, next_v, flag;
 	double d, t;
@@ -577,7 +577,7 @@ occlude_point_convex(struct shape s, point3 point, struct edge edge)
 	 */
 
 	flag = 0;
-	for (i = 0; i < s.num_f; ++i) {
+	for (i = 0; i < s->num_f; ++i) {
 
 		/*
 		 * if the point is on an edge that constitutes this face, don't
@@ -594,12 +594,12 @@ occlude_point_convex(struct shape s, point3 point, struct edge edge)
 
 		k = 0;
 		while (1) {
-			next_v = (k + 1) % s.faces[i].num_v;
+			next_v = (k + 1) % s->faces[i].num_v;
 
-			if ((edge.edge[0] == s.faces[i].face[k] &&
-			     edge.edge[1] == s.faces[i].face[next_v]) ||
-			    (edge.edge[0] == s.faces[i].face[next_v] &&
-			     edge.edge[1] == s.faces[i].face[k])) {
+			if ((edge.edge[0] == s->faces[i].face[k] &&
+			     edge.edge[1] == s->faces[i].face[next_v]) ||
+			    (edge.edge[0] == s->faces[i].face[next_v] &&
+			     edge.edge[1] == s->faces[i].face[k])) {
 				flag = 1;
 				break;
 			}
@@ -620,17 +620,17 @@ occlude_point_convex(struct shape s, point3 point, struct edge edge)
 		 * two vectors from the points that define the plane-face of
 		 * the object
 		 */
-		v0 = vector3_sub(s.vertices[s.faces[i].face[0]],
-				 s.vertices[s.faces[i].face[1]]);
-		v1 = vector3_sub(s.vertices[s.faces[i].face[0]],
-				 s.vertices[s.faces[i].face[2]]);
+		v0 = vector3_sub(s->vertices[s->faces[i].face[0]],
+				 s->vertices[s->faces[i].face[1]]);
+		v1 = vector3_sub(s->vertices[s->faces[i].face[0]],
+				 s->vertices[s->faces[i].face[2]]);
 
 		/* n is the cross product of the two vectors */
 		n = vector3_cross(v0, v1);
 
-		s.faces[i].normal.x = n.x;
-		s.faces[i].normal.y = n.y;
-		s.faces[i].normal.z = n.z;
+		s->faces[i].normal.x = n.x;
+		s->faces[i].normal.y = n.y;
+		s->faces[i].normal.z = n.z;
 
 		/*
 		 * with the parameterized equation of the plane given as:
@@ -639,7 +639,7 @@ occlude_point_convex(struct shape s, point3 point, struct edge edge)
 		 * and d is given by solving ax + by + cz = 0, where x, y, and
 		 * z are the x, y, and z from any one of the intial points
 		 */
-		d = vector3_dot(n, s.vertices[s.faces[i].face[0]]);
+		d = vector3_dot(n, s->vertices[s->faces[i].face[0]]);
 
 		/*
 		 * the intersection of the line between the point we're
@@ -654,20 +654,20 @@ occlude_point_convex(struct shape s, point3 point, struct edge edge)
 		 */
 
 		t = (d - (n.x * point.x + n.y * point.y + n.z * point.z)) /
-			 (n.x * (s.cop.x - point.x) +
-			  n.y * (s.cop.y - point.y) +
-			  n.z * (s.cop.z - point.z));
+			 (n.x * (s->cop.x - point.x) +
+			  n.y * (s->cop.y - point.y) +
+			  n.z * (s->cop.z - point.z));
 
 		/* inter is the intersection point */
-		inter.x = (point.x + (t * (s.cop.x - point.x)));
-		inter.y = (point.y + (t * (s.cop.y - point.y)));
-		inter.z = (point.z + (t * (s.cop.z - point.z)));
+		inter.x = (point.x + (t * (s->cop.x - point.x)));
+		inter.y = (point.y + (t * (s->cop.y - point.y)));
+		inter.z = (point.z + (t * (s->cop.z - point.z)));
 
 		/*
 		 * if the intersection is not on a face, loop again to check
 		 * the next face
 		 */
-		if (!point_in_polygon(s, inter, s.faces[i], n, d)) {
+		if (!point_in_polygon(s, inter, s->faces[i], n, d)) {
 			continue;
 		}
 
@@ -690,9 +690,9 @@ occlude_point_convex(struct shape s, point3 point, struct edge edge)
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point(struct shape s, point3 point, struct edge edge)
+occlude_point(struct shape *s, point3 point, struct edge edge)
 {
-	switch (s.occlusion) {
+	switch (s->occlusion) {
 	case NONE:
 		return 1;
 
@@ -714,22 +714,22 @@ occlude_point(struct shape s, point3 point, struct edge edge)
  * then prints points along the edge by multiplying the normal
  */
 void
-print_edges(struct shape s)
+print_edges(struct shape *s)
 {
 	int i, k;
 	double x0, y0, z0, v_len, x, y, z, movex, movey;
 	point3 v, u;
 
 	/* iterates over the edges */
-	for (i = s.num_e - 1; i >= 0; --i) {
-		v = s.vertices[s.edges[i].edge[0]];
+	for (i = s->num_e - 1; i >= 0; --i) {
+		v = s->vertices[s->edges[i].edge[0]];
 		x0 = v.x;
 		y0 = v.y;
 		z0 = v.z;
 
 		/* v is the vector given by two points */
-		v = vector3_sub(s.vertices[s.edges[i].edge[1]],
-				s.vertices[s.edges[i].edge[0]]);
+		v = vector3_sub(s->vertices[s->edges[i].edge[1]],
+				s->vertices[s->edges[i].edge[0]]);
 		v_len = vector3_mag(v);
 
 		/* u is the unit vector from v */
@@ -741,17 +741,17 @@ print_edges(struct shape s)
 		 * e_density is a natural number directly corresponding to the
 		 * number of points printed along the edge
 		 */
-		for (k = 0; k <= s.e_density; ++k) {
-			x = x0 + ((k / (float) s.e_density * v_len) * u.x);
-			y = y0 + ((k / (float) s.e_density * v_len) * u.y);
-			z = z0 + ((k / (float) s.e_density * v_len) * u.z);
+		for (k = 0; k <= s->e_density; ++k) {
+			x = x0 + ((k / (float) s->e_density * v_len) * u.x);
+			y = y0 + ((k / (float) s->e_density * v_len) * u.y);
+			z = z0 + ((k / (float) s->e_density * v_len) * u.z);
 
 			/*
 			 * if the occlusion flag is set and a point shouldn't
 			 * be occluded, the rest of the loop prints the point
 			 */
-			if (s.occlusion &&
-				occlude_point(s, (point3) {x, y, z}, s.edges[i])) {
+			if (s->occlusion &&
+				occlude_point(s, (point3) {x, y, z}, s->edges[i])) {
 				continue;
 			}
 
@@ -767,9 +767,9 @@ print_edges(struct shape s)
 			 */
 #if USE_NCURSES
 			if (z < 0) {
-				mvprintw(movey, movex, "%c", s.rear_symbol);
+				mvprintw(movey, movex, "%c", s->rear_symbol);
 			} else {
-				mvprintw(movey, movex, "%c", s.front_symbol);
+				mvprintw(movey, movex, "%c", s->front_symbol);
 			}
 #endif
 		}
@@ -783,7 +783,7 @@ print_edges(struct shape s)
  * front of the higher number indices if they overlap
  */
 void
-print_vertices(struct shape s)
+print_vertices(struct shape *s)
 {
 	int i;
 	double x, y, z;
@@ -794,12 +794,12 @@ print_vertices(struct shape s)
 	edge.edge[0] = -1;
 	edge.edge[1] = -1;
 
-	for (i = s.num_v - 1; i >= 0; --i) {
-		x = s.vertices[i].x;
-		y = s.vertices[i].y;
-		z = s.vertices[i].z;
+	for (i = s->num_v - 1; i >= 0; --i) {
+		x = s->vertices[i].x;
+		y = s->vertices[i].y;
+		z = s->vertices[i].z;
 
-		if (s.occlusion &&
+		if (s->occlusion &&
 			occlude_point(s, (point3) {x, y, z}, edge)) {
 			continue;
 		}
@@ -815,13 +815,13 @@ print_vertices(struct shape s)
  * only prints edges if edges are stored in the shape struct
  */
 void
-print_shape(struct shape s)
+print_shape(struct shape *s)
 {
-	if (s.print_edges && s.num_e) {
+	if (s->print_edges && s->num_e) {
 		print_edges(s);
 	}
 
-	if (s.print_vertices) {
+	if (s->print_vertices) {
 		print_vertices(s);
 	}
 }
@@ -1044,7 +1044,7 @@ loop(struct shape *s)
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 #endif
 
-		print_shape(*s);
+		print_shape(s);
 
 #if TIMING
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
