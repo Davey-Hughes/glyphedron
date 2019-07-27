@@ -17,6 +17,7 @@
 
 #define _POSIX_C_SOURCE 199309L
 
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,6 +87,8 @@ init_from_file(char *fname, struct shape *s)
 	s->num_e = num_e;
 	s->num_f = num_f;
 
+	s->e_density = E_DENSITY;
+
 	s->vertices = malloc(sizeof(point3) * s->num_v);
 	if (s->vertices == NULL) {
 		goto cleanup_file;
@@ -101,15 +104,26 @@ init_from_file(char *fname, struct shape *s)
 		goto cleanup_edges;
 	}
 
+	/* allocate space to hold coordinates for printing step */
+	s->fronts = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * s->e_density);
+	if (s->fronts == NULL) {
+		goto cleanup_faces;
+	}
+
+	s->behinds = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * s->e_density);
+	if (s->behinds == NULL) {
+		goto cleanup_fronts;
+	}
+
 	/* read 3D coordinates describing every vertex */
 	for (i = 0; i < num_v; ++i) {
 		err = fscanf(file, "%lf, %lf, %lf", &x, &y, &z);
 		if (err == EOF) {
 			fprintf(stderr, "Returned EOF when reading vertices in shape file\n");
-			goto cleanup_faces;
+			goto cleanup_behinds;
 		} else if (err == 0) {
 			fprintf(stderr, "Zero bytes read when reading vertices in shape file\n");
-			goto cleanup_faces;
+			goto cleanup_behinds;
 		}
 
 		s->vertices[i].x = x;
@@ -122,15 +136,15 @@ init_from_file(char *fname, struct shape *s)
 		err = fscanf(file, "%i, %i", &e0, &e1);
 		if (err == EOF) {
 			fprintf(stderr, "Returned EOF when reading edges in shape file\n");
-			goto cleanup_faces;
+			goto cleanup_behinds;
 		} else if (err == 0) {
 			fprintf(stderr, "Zero bytes read when reading edges in shape file\n");
-			goto cleanup_faces;
+			goto cleanup_behinds;
 		}
 
 		if (e0 < 0 || e0 > num_v - 1 || e1 < 0 || e1 > num_v -1) {
 			fprintf(stderr, "Edge index out of bounds\n");
-			goto cleanup_faces;
+			goto cleanup_behinds;
 		}
 
 		s->edges[i].edge[0] = e0;
@@ -140,7 +154,7 @@ init_from_file(char *fname, struct shape *s)
 	for (i = 0; i < num_f; ++i) {
 		str = fgets(buf, FACE_VERTS_BUFSIZE, file);
 		if (str == NULL) {
-			goto cleanup_faces;
+			goto cleanup_behinds;
 		} else if (*buf == '\n') { /* skip the single newline */
 			i--;
 			continue;
@@ -203,7 +217,6 @@ init_from_file(char *fname, struct shape *s)
 
 	s->print_edges = 1;
 
-	s->e_density = E_DENSITY;
 	s->occlusion = NONE;
 	s->cop = (point3) COP;
 
@@ -216,6 +229,10 @@ cleanup_face_vertices:
 	for (i = 0; i < num_f; ++i) {
 		free(s->faces[i].face);
 	}
+cleanup_behinds:
+	free(s->behinds);
+cleanup_fronts:
+	free(s->fronts);
 cleanup_faces:
 	free(s->faces);
 cleanup_edges:
@@ -237,6 +254,8 @@ destroy_shape(struct shape *s)
 
 	free(s->vertices);
 	free(s->edges);
+	free(s->behinds);
+	free(s->fronts);
 
 	for (i = 0; i < s->num_f; ++i) {
 		free(s->faces[i].face);
@@ -251,63 +270,8 @@ destroy_shape(struct shape *s)
 int
 init_cube(struct shape *c)
 {
-	c->vertices = malloc(sizeof(point3) * 8);
-	if (c->vertices == NULL) {
-		return -1;
-	}
-
-	c->edges = malloc(sizeof(struct edge) * 12);
-	if (c->edges == NULL) {
-		goto cleanup_verts;
-	}
-
-	c->faces = malloc(sizeof(struct edge) * 1);
-	if (c->faces == NULL) {
-		goto cleanup_edges;
-	}
-
-	c->vertices[0] = (point3) {1.0, 1.0, 1.0};
-	c->vertices[1] = (point3) {-1.0, 1.0, 1.0};
-	c->vertices[2] = (point3) {1.0, -1.0, 1.0};
-	c->vertices[3] = (point3) {-1.0, -1.0, 1.0};
-	c->vertices[4] = (point3) {1.0, 1.0, -1.0};
-	c->vertices[5] = (point3) {-1.0, 1.0, -1.0};
-	c->vertices[6] = (point3) {1.0, -1.0, -1.0};
-	c->vertices[7] = (point3) {-1.0, -1.0, -1.0};
-
-	c->edges[0] = (struct edge) {{0, 1}};
-	c->edges[1] = (struct edge) {{0, 2}};
-	c->edges[2] = (struct edge) {{0, 4}};
-	c->edges[3] = (struct edge) {{1, 3}};
-	c->edges[4] = (struct edge) {{1, 5}};
-	c->edges[5] = (struct edge) {{2, 3}};
-	c->edges[6] = (struct edge) {{2, 6}};
-	c->edges[7] = (struct edge) {{3, 7}};
-	c->edges[8] = (struct edge) {{4, 5}};
-	c->edges[9] = (struct edge) {{4, 6}};
-	c->edges[10] = (struct edge) {{5, 7}};
-	c->edges[11] = (struct edge) {{6, 7}};
-
-	c->num_v = 8;
-	c->num_e = 12;
-	c->num_f = 0;
-	c->center = (point3) {0.0, 0.0, 0.0};
-	c->fname = NULL;
-	c->print_vertices = 0;
-	c->print_edges = 1;
-	c->e_density = E_DENSITY;
-	c->occlusion = NONE;
-	c->cop = (point3) COP;
-	c->front_symbol = 'o';
-	c->rear_symbol = '.';
-
-	return 0;
-
-cleanup_edges:
-	free(c->edges);
-cleanup_verts:
-	free(c->vertices);
-	return -1;
+	/* TODO should do absolute path better */
+	return init_from_file("./shapes/platonic_solids/cube.txt", c);
 }
 
 /*
@@ -702,6 +666,9 @@ occlude_point(struct shape *s, point3 point, struct edge edge)
 	case CONVEX:
 		return occlude_point_convex(s, point, edge);
 
+	case CONVEX_CLEAR:
+		return occlude_point_convex(s, point, edge);
+
 	case EXACT: /* not implemented */
 		return 0;
 	}
@@ -716,9 +683,14 @@ occlude_point(struct shape *s, point3 point, struct edge edge)
 void
 print_edges(struct shape *s)
 {
+	char occlude_val;
+	ssize_t fronts_index, behinds_index;
 	int i, k;
 	double x0, y0, z0, v_len, x, y, z, movex, movey;
 	point3 v, u;
+
+	fronts_index = 0;
+	behinds_index = 0;
 
 	/* iterates over the edges */
 	for (i = s->num_e - 1; i >= 0; --i) {
@@ -750,8 +722,8 @@ print_edges(struct shape *s)
 			 * if the occlusion flag is set and a point shouldn't
 			 * be occluded, the rest of the loop prints the point
 			 */
-			if (s->occlusion &&
-				occlude_point(s, (point3) {x, y, z}, s->edges[i])) {
+			occlude_val = occlude_point(s, (point3) {x, y, z}, s->edges[i]);
+			if (s->occlusion == CONVEX && occlude_val) {
 				continue;
 			}
 
@@ -760,20 +732,40 @@ print_edges(struct shape *s)
 			movexy(&movex, &movey);
 
 			/*
-			 * to give a sense of distance and since each object
-			 * starts centered around the origin, points that have
-			 * a negative z value (therefore are "behind" the
-			 * xy-plane) are printed with a "." instead of a "o"
+			 * renders the rear and front symbols based on whether
+			 * the point is detected to be "behind" or "in front"
 			 */
 #if USE_NCURSES
-			if (z < 0) {
-				mvprintw(movey, movex, "%c", s->rear_symbol);
+			if (occlude_val == 1) {
+				s->behinds[behinds_index].x = movex;
+				s->behinds[behinds_index].y = movey;
+				behinds_index++;
 			} else {
-				mvprintw(movey, movex, "%c", s->front_symbol);
+				s->fronts[fronts_index].x = movex;
+				s->fronts[fronts_index].y = movey;
+				fronts_index++;
 			}
 #endif
 		}
 	}
+
+#if USE_NCURSES
+	/* print all the points behind */
+	if (s->occlusion != CONVEX) {
+		for (ssize_t j = 0; j < behinds_index - 1; ++j) {
+			mvprintw(s->behinds[j].y,
+				 s->behinds[j].x,
+				 "%c", s->rear_symbol);
+		}
+	}
+
+	/* print all the points in front */
+	for (ssize_t j = 0; j < fronts_index - 1; ++j) {
+		mvprintw(s->fronts[j].y,
+			 s->fronts[j].x,
+			 "%c", s->front_symbol);
+	}
+#endif
 }
 
 /*
@@ -960,6 +952,27 @@ reset_shape(struct shape *s)
 	return init_cube(s);
 }
 
+/* resize the points_to_print array. */
+/* defaults to resetting the whole shape if malloc fails */
+int
+resize_points_to_print(struct shape *s) {
+	free(s->fronts);
+	s->fronts = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * s->e_density);
+	if (s->fronts == NULL) {
+		reset_shape(s);
+		return 1;
+	}
+
+	free(s->behinds);
+	s->behinds = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * s->e_density);
+	if (s->behinds == NULL) {
+		reset_shape(s);
+		return 1;
+	}
+
+	return 0;
+}
+
 /*
  * loop which re-prints the shape with every keypress, and checks for certain
  * keyboard input to determine functions to run on the shape
@@ -1019,8 +1032,13 @@ loop(struct shape *s)
 		case CONVEX:
 			occlusion_type = "convex";
 			s->front_symbol = '.';
+			s->rear_symbol = '\0';
 			break;
-
+		case CONVEX_CLEAR:
+			occlusion_type = "convex_clear";
+			s->front_symbol = 'o';
+			s->rear_symbol = '.';
+			break;
 		case EXACT:
 			occlusion_type = "exact not implemented";
 			s->front_symbol = 'o';
@@ -1196,12 +1214,14 @@ loop(struct shape *s)
 		/* increase edge density */
 		case '0':
 			s->e_density++;
+			resize_points_to_print(s);
 			break;
 
 		/* decrease edge density */
 		case '9':
 			if (s->e_density > 0) {
 				s->e_density--;
+				resize_points_to_print(s);
 			}
 			break;
 

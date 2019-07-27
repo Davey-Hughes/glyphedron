@@ -30,7 +30,7 @@
 
 /* used for valgrind testing, since ncurses shows a lot of errors in valgrind */
 #ifndef USE_NCURSES
-#define USE_NCURSES 0
+#define USE_NCURSES 1
 #endif
 
 #define M_PI 3.14159265358979323846264338327950288
@@ -64,7 +64,15 @@ enum occ_method {
 	NONE,
 	APPROX,
 	CONVEX,
+	CONVEX_CLEAR,
 	EXACT   /* not implemented */
+};
+
+
+/* point to be printed in a later step */
+struct point_to_print {
+	double x;
+	double y;
 };
 
 /* a shape/solid object */
@@ -89,6 +97,9 @@ struct shape {
 
 	char front_symbol;
 	char rear_symbol;
+
+	struct point_to_print *fronts; /* points detected as not occluded */
+	struct point_to_print *behinds; /* points detected as occluded */
 };
 
 /* prototypes */
