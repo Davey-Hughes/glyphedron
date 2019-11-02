@@ -8,3 +8,4 @@
 !*/
 
 ### the above ignores files without an extension
+.ccls-cache/*

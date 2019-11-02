@@ -18,6 +18,8 @@
 #ifndef TERM_SHAPES_H
 #define TERM_SHAPES_H
 
+#include <time.h>
+
 #ifndef TIMING
 #define TIMING 1
 #endif
@@ -75,6 +77,12 @@ struct point_to_print {
 	double y;
 };
 
+struct autorotate_dir {
+	double x;
+	double y;
+	double z;
+};
+
 /* a shape/solid object */
 struct shape {
 	int num_v;     /* number of vertices */
@@ -84,7 +92,7 @@ struct shape {
 
 	point3 center; /* center of the shape */
 
-	point3 *vertices; /* list of vertices */
+	point3 *vertices;        /* list of vertices */
 	struct edge *edges;      /* list of edges */
 	struct face *faces;      /* list of faces */
 
@@ -93,13 +101,17 @@ struct shape {
 	int print_vertices;        /* bool whether or not to print vertices */
 	int print_edges;           /* bool whether or not to print edges */
 	enum occ_method occlusion; /* choose which occlusion method to use */
-	point3 cop;         /* center of projection */
+	point3 cop;                /* center of projection */
 
 	char front_symbol;
 	char rear_symbol;
 
 	struct point_to_print *fronts; /* points detected as not occluded */
 	struct point_to_print *behinds; /* points detected as occluded */
+
+	int autorotate;            /* whether auto-rotate is on or off */
+	struct autorotate_dir dir; /* direction to rotate the shape in radians */
+	struct timespec interval;  /* interval to redraw shape */
 };
 
 /* prototypes */
@@ -122,5 +134,6 @@ void rotate_shape(double, char, struct shape *);
 void scale_shape(double, struct shape *);
 void translate_shape(double, char, struct shape *);
 int reset_shape(struct shape *);
+void autorotate(struct shape *);
 
 #endif /* TERM_SHAPES_H */

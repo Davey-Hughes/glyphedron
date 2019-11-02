@@ -973,6 +973,62 @@ resize_points_to_print(struct shape *s) {
 	return 0;
 }
 
+#if USE_NCURSES
+void
+autorotate(struct shape *s)
+{
+	char c;
+
+	mvprintw(1, 1, "Please enter 'a' for automatic rotate or 'm' for manual angle.");
+	c = getch();
+
+	if (c == 'm') {
+		curs_set(1);
+		echo();
+		wclear(stdscr);
+
+		mvprintw(1, 1, "Please enter x angle: ");
+		scanw("%lf", &(s->dir.x));
+		mvprintw(2, 1, "Please enter y angle: ");
+		scanw("%lf", &(s->dir.y));
+		mvprintw(3, 1, "Please enter z angle: ");
+		scanw("%lf", &(s->dir.z));
+
+		noecho();
+		curs_set(0);
+	} else {
+		s->dir.x = M_PI / 80;
+		s->dir.y = M_PI / 120;
+		s->dir.z = M_PI / 60;
+
+	}
+
+	s->interval.tv_sec = 0;
+	s->interval.tv_nsec = 60000000;
+
+	nodelay(stdscr, TRUE);
+
+	while (1) {
+		wclear(stdscr);
+		print_shape(s);
+		mvprintw(1, 1, "%f %f %f", s->dir.x, s->dir.y, s->dir.z);
+
+		c = getch();
+		if (c == 'a') {
+			break;
+		}
+
+		rotate_shape(s->dir.x, 'x', s);
+		rotate_shape(s->dir.y, 'y', s);
+		rotate_shape(s->dir.z, 'z', s);
+
+		nanosleep(&s->interval, NULL);
+	}
+
+	nodelay(stdscr, FALSE);
+}
+#endif
+
 /*
  * loop which re-prints the shape with every keypress, and checks for certain
  * keyboard input to determine functions to run on the shape
@@ -1015,7 +1071,7 @@ loop(struct shape *s)
 	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 #endif
 
-	while(1) {
+	while (1) {
 
 #if USE_NCURSES
 		wclear(stdscr);
@@ -1168,6 +1224,12 @@ loop(struct shape *s)
 			translate_shape(dist, 'z', s);
 			break;
 
+#if USE_NCURSES
+		/* AUTOROTATE */
+		case 'a':
+			autorotate(s);
+			break;
+#endif
 
 		/* RESET */
 		case 'r':
