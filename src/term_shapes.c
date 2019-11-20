@@ -60,11 +60,17 @@ init_from_file(char *fname, struct shape *s)
 	char delimit[] = ", ";
 	char *str;
 
+	s->log = fopen("log.txt", "w+");
+	if (s->log == NULL) {
+		fprintf(stderr, "could not open log file\n");
+		return -1;
+	}
+
 	FILE *file;
 	file = fopen(fname, "r");
 	if (file == NULL) {
 		fprintf(stderr, "could not open file\n");
-		return -1;
+		goto cleanup_log_file;
 	}
 
 	/* read number of vertices and edges */
@@ -105,12 +111,12 @@ init_from_file(char *fname, struct shape *s)
 	}
 
 	/* allocate space to hold coordinates for printing step */
-	s->fronts = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * s->e_density);
+	s->fronts = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * (s->e_density + 1));
 	if (s->fronts == NULL) {
 		goto cleanup_faces;
 	}
 
-	s->behinds = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * s->e_density);
+	s->behinds = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * (s->e_density + 1));
 	if (s->behinds == NULL) {
 		goto cleanup_fronts;
 	}
@@ -241,6 +247,8 @@ cleanup_vertices:
 	free(s->vertices);
 cleanup_file:
 	fclose(file);
+cleanup_log_file:
+	fclose(s->log);
 	return -1;
 }
 
@@ -714,9 +722,9 @@ print_edges(struct shape *s)
 		 * number of points printed along the edge
 		 */
 		for (k = 0; k <= s->e_density; ++k) {
-			x = x0 + ((k / (float) s->e_density * v_len) * u.x);
-			y = y0 + ((k / (float) s->e_density * v_len) * u.y);
-			z = z0 + ((k / (float) s->e_density * v_len) * u.z);
+			x = x0 + ((k / (double) s->e_density * v_len) * u.x);
+			y = y0 + ((k / (double) s->e_density * v_len) * u.y);
+			z = z0 + ((k / (double) s->e_density * v_len) * u.z);
 
 			/*
 			 * if the occlusion flag is set and a point shouldn't
@@ -957,14 +965,14 @@ reset_shape(struct shape *s)
 int
 resize_points_to_print(struct shape *s) {
 	free(s->fronts);
-	s->fronts = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * s->e_density);
+	s->fronts = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * (s->e_density + 1));
 	if (s->fronts == NULL) {
 		reset_shape(s);
 		return 1;
 	}
 
 	free(s->behinds);
-	s->behinds = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * s->e_density);
+	s->behinds = malloc(sizeof(struct point_to_print) * (s->num_e + 1) * (s->e_density + 1));
 	if (s->behinds == NULL) {
 		reset_shape(s);
 		return 1;

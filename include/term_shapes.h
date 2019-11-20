@@ -18,6 +18,7 @@
 #ifndef TERM_SHAPES_H
 #define TERM_SHAPES_H
 
+#include <stdio.h>
 #include <time.h>
 
 #ifndef TIMING
@@ -106,12 +107,14 @@ struct shape {
 	char front_symbol;
 	char rear_symbol;
 
-	struct point_to_print *fronts; /* points detected as not occluded */
+	struct point_to_print *fronts;  /* points detected as not occluded */
 	struct point_to_print *behinds; /* points detected as occluded */
 
 	int autorotate;            /* whether auto-rotate is on or off */
 	struct autorotate_dir dir; /* direction to rotate the shape in radians */
 	struct timespec interval;  /* interval to redraw shape */
+
+	FILE *log; /* log file */
 };
 
 /* prototypes */
