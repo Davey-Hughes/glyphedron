@@ -1117,7 +1117,7 @@ loop(struct shape *s)
 		timespec_diff(&start, &end, &diff);
 
 # if USE_NCURSES
-		mvprintw(3, 1, "Operation time: %ld.%06ld seconds\n",
+		mvprintw(3, 1, "Operation time: %ld.%06ld seconds",
 			diff.tv_sec, diff.tv_nsec / 1000);
 # endif
 
@@ -1134,7 +1134,7 @@ loop(struct shape *s)
 		timespec_diff(&start, &end, &diff);
 
 # if USE_NCURSES
-		mvprintw(2, 1, "Print time: %ld.%06ld seconds\n",
+		mvprintw(2, 1, "Print time: %ld.%06ld seconds",
 			diff.tv_sec, diff.tv_nsec / 1000);
 # endif
 
