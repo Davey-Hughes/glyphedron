@@ -118,25 +118,6 @@ struct shape {
 };
 
 /* prototypes */
-
-int init_from_file(char *, struct shape *);
-void destroy_shape(struct shape *);
-int init_cube(struct shape *);
-void movexy(double *, double *);
-int orientation(point3, point3, point3, struct face);
-int intersects(point3, point3, point3, point3, struct face);
-int is_inside(struct shape *, point3, point3, struct face);
-int point_in_polygon(struct shape *, point3, struct face, point3, double);
-int occlude_point_approx(struct shape *, point3);
-int occlude_point_convex(struct shape *, point3, struct edge);
-int occlude_point(struct shape *, point3, struct edge);
-void print_edges(struct shape *);
-void print_vertices(struct shape *);
-void print_shape(struct shape *);
-void rotate_shape(double, char, struct shape *);
-void scale_shape(double, struct shape *);
-void translate_shape(double, char, struct shape *);
-int reset_shape(struct shape *);
-void autorotate(struct shape *);
+int occlude_point(struct shape *s, point3 point, struct edge edge);
 
 #endif /* TERM_SHAPES_H */
