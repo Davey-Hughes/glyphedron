@@ -26,6 +26,31 @@ movexy(double *x, double *y)
 }
 
 /*
+ * searches the fronts and behinds of a shape to determine if the point on
+ * the ncurses screen has already been processed
+ */
+static
+int
+search_finished(struct shape *s, int x, int y, ssize_t fronts_len, ssize_t behinds_len)
+{
+	ssize_t i;
+
+	for (i = 0; i < fronts_len; ++i) {
+		if (x == s->fronts[i].x && y == s->fronts[i].y) {
+			return 1;
+		}
+	}
+
+	for (i = 0; i < behinds_len; ++i) {
+		if (x == s->behinds[i].x && y == s->behinds[i].y) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/*
  * prints the edges by calculating the normal vector from two given points, and
  * then prints points along the edge by multiplying the normal
  */
@@ -35,9 +60,11 @@ print_edges(struct shape *s)
 {
 	char occlude_val;
 	ssize_t fronts_index, behinds_index;
-	int i, k;
+	int i, k, winx, winy;
 	double x0, y0, z0, v_len, x, y, z, movex, movey;
 	point3 v, u;
+
+	getmaxyx(stdscr, winy, winx);
 
 	fronts_index = 0;
 	behinds_index = 0;
@@ -68,6 +95,23 @@ print_edges(struct shape *s)
 			y = y0 + ((k / (double) s->e_density * v_len) * u.y);
 			z = z0 + ((k / (double) s->e_density * v_len) * u.z);
 
+			movex = x;
+			movey = y;
+			movexy(&movex, &movey);
+
+			/*
+ 			 * only worry about points that are on screen and that
+ 			 * don't overlap with previous points
+			 */
+			if ((int) movex < 0 || (int) movex > winx ||
+			    (int) movey < 0 || (int) movey > winy) {
+				continue;
+			}
+
+			if (search_finished(s, movex, movey, fronts_index, behinds_index)) {
+				continue;
+			}
+
 			/*
 			 * if the occlusion flag is set and a point shouldn't
 			 * be occluded, the rest of the loop prints the point
@@ -76,10 +120,6 @@ print_edges(struct shape *s)
 			if (s->occlusion == CONVEX && occlude_val) {
 				continue;
 			}
-
-			movex = x;
-			movey = y;
-			movexy(&movex, &movey);
 
 			/*
 			 * renders the rear and front symbols based on whether
