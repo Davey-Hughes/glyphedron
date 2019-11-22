@@ -194,6 +194,20 @@ point_in_polygon(struct shape *s, point3 inter, struct face face,
 }
 
 /*
+ * returns 1 if p0 is between p1 and p2, 0 otherwise
+ */
+int
+is_between(point3 p0, point3 p1, point3 p2)
+{
+	return ((p1.x < p0.x && p0.x < p2.x) ||
+	        (p2.x < p0.x && p0.x < p1.x)) &&
+	       ((p1.y < p0.y && p0.y < p2.y) ||
+		(p2.y < p0.y && p0.y < p1.y)) &&
+	       ((p1.z < p0.z && p0.z < p2.z) ||
+		(p2.z < p0.z && p0.z < p1.z));
+}
+
+/*
  * occlusion method that works for convex shapes
  *
  * returns 0 if point should be rendered, else 1
@@ -299,6 +313,16 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		inter.x = (point.x + (t * (s->cop.x - point.x)));
 		inter.y = (point.y + (t * (s->cop.y - point.y)));
 		inter.z = (point.z + (t * (s->cop.z - point.z)));
+
+
+		/*
+		 * if the intersection point isn't between the center of
+		 * projection and the input point, skip the point in polygon
+		 * calculation
+		 */
+		if (!is_between(inter, s->cop, point)) {
+			continue;
+		}
 
 		/*
 		 * if the intersection is not on a face, loop again to check
