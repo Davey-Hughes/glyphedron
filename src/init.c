@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "init.h"
+#include "vector.h"
 #include "term_shapes.h"
 
 /*
@@ -182,6 +183,15 @@ init_from_file(char *fname, struct shape *s)
 
 	fclose(file);
 
+	/* calculate the normal for each face */
+	for (i = 0; i < num_f; ++i) {
+		vector3_normal(&(s->vertices[s->faces[i].face[0]]),
+			       &(s->vertices[s->faces[i].face[1]]),
+			       &(s->vertices[s->faces[i].face[2]]),
+			       &(s->faces[i].normal));
+	}
+
+
 	s->center = (point3) {0.0, 0.0, 0.0};
 	s->fname = fname;
 
@@ -190,10 +200,7 @@ init_from_file(char *fname, struct shape *s)
 	 * described by the input file, the vertices will be drawn by the
 	 * function print_vertices()
 	 */
-	s->print_vertices = 1;
-	if (s->num_e) {
-		s->print_vertices = 0;
-	}
+	s->print_vertices = s->num_e == 0;
 
 	s->print_edges = 1;
 

@@ -69,6 +69,15 @@ rotate_shape(double theta, char axis, struct shape *s)
 		*fst += cfst;
 		*snd += csnd;
 	}
+
+	/* calculate the normal for each face */
+	for (i = 0; i < s->num_f; ++i) {
+		vector3_normal(&(s->vertices[s->faces[i].face[0]]),
+			       &(s->vertices[s->faces[i].face[1]]),
+			       &(s->vertices[s->faces[i].face[2]]),
+			       &(s->faces[i].normal));
+	}
+
 }
 
 /*

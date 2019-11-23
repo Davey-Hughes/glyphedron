@@ -32,5 +32,6 @@ double vector3_dot(struct vector3 *, struct vector3 *);
 void vector3_cross(struct vector3 *, struct vector3 *, struct vector3 *);
 double vector3_mag(struct vector3 *);
 void vector3_unit(struct vector3 *, struct vector3 *);
+void vector3_normal(struct vector3 *, struct vector3 *, struct vector3 *, struct vector3 *);
 
 #endif /* VECTOR_H */

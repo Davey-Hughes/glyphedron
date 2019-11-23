@@ -217,7 +217,7 @@ occlude_point_convex(struct shape *s, point3 *point, struct edge *edge)
 {
 	int i, k, next_v, flag;
 	double d, t;
-	point3 v0, v1, n, inter;
+	point3 n, inter;
 
 	/*
 	 * iterate through every face in the shape and determine whether the
@@ -267,23 +267,7 @@ occlude_point_convex(struct shape *s, point3 *point, struct edge *edge)
 			continue;
 		}
 
-		/*
-		 * two vectors from the points that define the plane-face of
-		 * the object
-		 */
-		vector3_sub(&(s->vertices[s->faces[i].face[0]]),
-			    &(s->vertices[s->faces[i].face[1]]),
-			    &v0);
-		vector3_sub((&s->vertices[s->faces[i].face[0]]),
-			     &(s->vertices[s->faces[i].face[2]]),
-			     &v1);
-
-		/* n is the cross product of the two vectors */
-		vector3_cross(&v0, &v1, &n);
-
-		s->faces[i].normal.x = n.x;
-		s->faces[i].normal.y = n.y;
-		s->faces[i].normal.z = n.z;
+		n = s->faces[i].normal;
 
 		/*
 		 * with the parameterized equation of the plane given as:

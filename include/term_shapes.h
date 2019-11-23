@@ -57,9 +57,9 @@ struct edge {
 
 /* edge as the index of three points */
 struct face {
-	int num_v;     /* number of vertices on this face */
-	point3 normal; /* normal vector to this face */
-	int *face;     /* array of indices corresponding to vertices on this face */
+	int num_v;             /* number of vertices on this face */
+	struct vector3 normal; /* normal vector to this face */
+	int *face;             /* array of indices corresponding to vertices on this face */
 };
 
 /* choose which occlusion method to use */

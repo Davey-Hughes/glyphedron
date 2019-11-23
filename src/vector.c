@@ -94,3 +94,17 @@ vector3_unit(struct vector3 *v, struct vector3 *ret)
 	ret->y = v->y / v_len;
 	ret->z = v->z / v_len;
 }
+
+/*
+ * calculates the normal from three vectors
+ */
+void
+vector3_normal(struct vector3 *v0, struct vector3 *v1,
+	       struct vector3 *v2, struct vector3 *ret)
+{
+	struct vector3 tmp0, tmp1;
+
+	vector3_sub(v0, v1, &tmp0);
+	vector3_sub(v0, v2, &tmp1);
+	vector3_cross(&tmp0, &tmp1, ret);
+}
