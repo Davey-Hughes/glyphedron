@@ -71,11 +71,23 @@ enum occ_method {
 	EXACT   /* not implemented */
 };
 
+/*
+ * considering a "terminal pixel" as approximately 2x as high as it is wide,
+ * this enum is to determine whether the upper, lower, or both sections of the
+ * "terminal pixel" should be printed
+ */
+enum t_pixel_print {
+	UPPER = '\'',
+	LOWER = ',',
+	FULL = ';'
+};
+
 
 /* point to be printed in a later step */
 struct point_to_print {
 	double x;
 	double y;
+	enum t_pixel_print t;
 };
 
 struct autorotate_dir {
@@ -103,9 +115,6 @@ struct shape {
 	int print_edges;           /* bool whether or not to print edges */
 	enum occ_method occlusion; /* choose which occlusion method to use */
 	point3 cop;                /* center of projection */
-
-	char front_symbol;
-	char rear_symbol;
 
 	struct point_to_print *fronts;  /* points detected as not occluded */
 	struct point_to_print *behinds; /* points detected as occluded */

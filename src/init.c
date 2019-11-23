@@ -207,9 +207,6 @@ init_from_file(char *fname, struct shape *s)
 	s->occlusion = NONE;
 	s->cop = (point3) COP;
 
-	s->front_symbol = 'o';
-	s->rear_symbol = '.';
-
 	return 0;
 
 cleanup_face_vertices:

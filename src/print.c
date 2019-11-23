@@ -1,4 +1,5 @@
 #include <ncurses.h>
+#include <math.h>
 
 #include "print.h"
 #include "convex_occlusion.h"
@@ -11,44 +12,59 @@
  * centered in the center of the screen and entirely fit on the screen
  */
 static
-void
-movexy(double *x, double *y)
+enum t_pixel_print
+movexy(double *x, double *y, struct shape *s)
 {
 	int winx, winy;
-	double movex, movey;
+	double integralx, integraly, fractionalx, fractionaly;
 
 	getmaxyx(stdscr, winy, winx);
 
-	movex = (int) ((*x * SCALE * winy) + (0.5 * winx));
-	movey = (int) (-(*y * SCALE * .5 * winy) + (0.5 * winy));
+	fractionalx = ((*x * SCALE * winy) + (0.5 * winx));
+	fractionaly = (-(*y * SCALE * .5 * winy) + (0.5 * winy));
 
-	*x = movex;
-	*y = movey;
+	fractionalx = modf(fractionalx, &integralx);
+	fractionaly = modf(fractionaly, &integraly);
+
+	*x = integralx;
+	*y = integraly;
+
+	if (fractionaly > 0.5) {
+		return LOWER;
+	}
+
+	return UPPER;
 }
 
 /*
- * searches the fronts and behinds of a shape to determine if the point on
- * the ncurses screen has already been processed
+ * searches a point_to_print array to determine if the point on the ncurses
+ * screen has already been processed including the t_pixel_print.
+ *
+ * if there's no match on the {x y} coordinates, return -2.
+ *
+ * if there's a match on the {x y} coordinates and the t_pixel_print is the
+ * same, return -1.
+ *
+ * if there's a match but the t_pixel_print is different, return the index of
+ * the match.
  */
 static
-int
-search_finished(struct shape *s, int x, int y, ssize_t fronts_len, ssize_t behinds_len)
+ssize_t
+search_ptp(struct point_to_print *arr, ssize_t len, struct point_to_print *p)
 {
 	ssize_t i;
 
-	for (i = 0; i < fronts_len; ++i) {
-		if (x == s->fronts[i].x && y == s->fronts[i].y) {
-			return 1;
+	for (i = 0; i < len; ++i) {
+		if (p->x == arr[i].x && p->y == arr[i].y) {
+			if (p->t == arr[i].t || arr[i].t == FULL) {
+				return -1;
+			}
+
+			return i;
 		}
 	}
 
-	for (i = 0; i < behinds_len; ++i) {
-		if (x == s->behinds[i].x && y == s->behinds[i].y) {
-			return 1;
-		}
-	}
-
-	return 0;
+	return -2;
 }
 
 /*
@@ -73,11 +89,13 @@ void
 print_edges(struct shape *s)
 {
 	char occlude_val;
-	ssize_t fronts_index, behinds_index;
+	ssize_t fronts_index, behinds_index, found_front, found_behind;
 	int i, k, winx, winy;
 	double x0, y0, z0, v_len, x, y, z, movex, movey;
 	point3 v, u;
 	enum edge_occlusion edge_occlude_state;
+	enum t_pixel_print tpp;
+	struct point_to_print test_point;
 
 	getmaxyx(stdscr, winy, winx);
 
@@ -149,7 +167,7 @@ print_edges(struct shape *s)
 
 			movex = x;
 			movey = y;
-			movexy(&movex, &movey);
+			tpp = movexy(&movex, &movey, s);
 
 			/*
  			 * only worry about points that are on screen and that
@@ -160,7 +178,17 @@ print_edges(struct shape *s)
 				continue;
 			}
 
-			if (search_finished(s, movex, movey, fronts_index, behinds_index)) {
+			test_point.x = movex;
+			test_point.y = movey;
+			test_point.t = tpp;
+
+			found_front = search_ptp(s->fronts, fronts_index, &test_point);
+			if (found_front == -1) {
+				continue;
+			}
+
+			found_behind = search_ptp(s->behinds, behinds_index, &test_point);
+			if (found_behind == -1) {
 				continue;
 			}
 
@@ -188,10 +216,20 @@ print_edges(struct shape *s)
 			if (occlude_val == 1) {
 				s->behinds[behinds_index].x = movex;
 				s->behinds[behinds_index].y = movey;
+				if (found_behind >= 0) {
+					s->behinds[behinds_index].t = FULL;
+				} else {
+					s->behinds[behinds_index].t = tpp;
+				}
 				behinds_index++;
 			} else {
 				s->fronts[fronts_index].x = movex;
 				s->fronts[fronts_index].y = movey;
+				if (found_front >= 0) {
+					s->fronts[fronts_index].t = FULL;
+				} else {
+					s->fronts[fronts_index].t = tpp;
+				}
 				fronts_index++;
 			}
 #endif
@@ -204,7 +242,7 @@ print_edges(struct shape *s)
 		for (ssize_t j = 0; j < behinds_index - 1; ++j) {
 			mvprintw(s->behinds[j].y,
 				 s->behinds[j].x,
-				 "%c", s->rear_symbol);
+				 "%c", s->behinds[j].t);
 		}
 	}
 
@@ -212,7 +250,7 @@ print_edges(struct shape *s)
 	for (ssize_t j = 0; j < fronts_index - 1; ++j) {
 		mvprintw(s->fronts[j].y,
 			 s->fronts[j].x,
-			 "%c", s->front_symbol);
+			 "%c", s->fronts[j].t);
 	}
 #endif
 }
@@ -246,7 +284,7 @@ print_vertices(struct shape *s)
 			continue;
 		}
 
-		movexy(&x, &y);
+		movexy(&x, &y, s);
 #if USE_NCURSES
 		mvprintw(y, x, "%i", i);
 #endif

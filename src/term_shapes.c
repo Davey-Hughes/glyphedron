@@ -123,17 +123,12 @@ loop(struct shape *s)
 
 		case CONVEX:
 			occlusion_type = "convex";
-			s->front_symbol = '.';
-			s->rear_symbol = '\0';
 			break;
 		case CONVEX_CLEAR:
 			occlusion_type = "convex_clear";
-			s->front_symbol = 'o';
-			s->rear_symbol = '.';
 			break;
 		case EXACT:
 			occlusion_type = "exact not implemented";
-			s->front_symbol = 'o';
 			break;
 		}
 		mvprintw(1, 1, "Occlusion type: %s", occlusion_type);
