@@ -29,7 +29,8 @@ movexy(double *x, double *y, struct shape *s)
 	*x = integralx;
 	*y = integraly;
 
-	if (fractionaly > 0.5) {
+	/* opposite direction than what's intuitive because y is reversed */
+	if (fractionaly >= 0.5) {
 		return LOWER;
 	}
 
@@ -238,6 +239,7 @@ print_edges(struct shape *s)
 
 #if USE_NCURSES
 	/* print all the points behind */
+	attron(A_DIM);
 	if (s->occlusion != CONVEX) {
 		for (ssize_t j = 0; j < behinds_index - 1; ++j) {
 			mvprintw(s->behinds[j].y,
@@ -245,13 +247,16 @@ print_edges(struct shape *s)
 				 "%c", s->behinds[j].t);
 		}
 	}
+	attroff(A_DIM);
 
 	/* print all the points in front */
+	attron(A_BOLD);
 	for (ssize_t j = 0; j < fronts_index - 1; ++j) {
 		mvprintw(s->fronts[j].y,
 			 s->fronts[j].x,
 			 "%c", s->fronts[j].t);
 	}
+	attroff(A_BOLD);
 #endif
 }
 
