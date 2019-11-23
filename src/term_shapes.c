@@ -42,7 +42,7 @@
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point(struct shape *s, point3 point, struct edge edge)
+occlude_point(struct shape *s, point3 *point, struct edge *edge)
 {
 	switch (s->occlusion) {
 	case NONE:

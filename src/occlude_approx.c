@@ -16,25 +16,25 @@
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point_approx(struct shape *s, point3 point)
+occlude_point_approx(struct shape *s, point3 *point)
 {
 	double dprod, mag0, mag1, theta;
 	point3 v0, v1;
 
 	/* vector from point to the center of solid */
-	v0 = vector3_sub(s->center, point);
+	vector3_sub(&(s->center), point, &v0);
 
 	/* vector from point to the center of projection */
-	v1 = vector3_sub(s->cop, point);
+	vector3_sub(&(s->cop), point, &v1);
 
 	/*
 	 * angle between two vectors is given by the arc cosine of the dot
 	 * product of the two vectors divided by the product of magnitudes of
 	 * the vectors
 	 */
-	dprod = vector3_dot(v0, v1);
-	mag0 = vector3_mag(v0);
-	mag1 = vector3_mag(v1);
+	dprod = vector3_dot(&v0, &v1);
+	mag0 = vector3_mag(&v0);
+	mag1 = vector3_mag(&v1);
 
 	theta = acos(dprod / (mag0 * mag1));
 

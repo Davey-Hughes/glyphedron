@@ -25,12 +25,12 @@ struct vector3 {
 	double z;
 };
 
-struct vector3 vector3_add(struct vector3, struct vector3);
-struct vector3 vector3_sub(struct vector3, struct vector3);
-struct vector3 vector3_mult(struct vector3, double);
-double vector3_dot(struct vector3, struct vector3);
-struct vector3 vector3_cross(struct vector3, struct vector3);
-double vector3_mag(struct vector3);
-struct vector3 vector3_unit(struct vector3);
+void vector3_add(struct vector3 *, struct vector3 *, struct vector3 *);
+void vector3_sub(struct vector3 *, struct vector3 *, struct vector3 *);
+void vector3_mult(struct vector3 *, double, struct vector3 *);
+double vector3_dot(struct vector3 *, struct vector3 *);
+void vector3_cross(struct vector3 *, struct vector3 *, struct vector3 *);
+double vector3_mag(struct vector3 *);
+void vector3_unit(struct vector3 *, struct vector3 *);
 
 #endif /* VECTOR_H */

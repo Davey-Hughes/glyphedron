@@ -77,12 +77,13 @@ print_edges(struct shape *s)
 		z0 = v.z;
 
 		/* v is the vector given by two points */
-		v = vector3_sub(s->vertices[s->edges[i].edge[1]],
-				s->vertices[s->edges[i].edge[0]]);
-		v_len = vector3_mag(v);
+		vector3_sub(&(s->vertices[s->edges[i].edge[1]]),
+			    &(s->vertices[s->edges[i].edge[0]]),
+			    &v);
+		v_len = vector3_mag(&v);
 
 		/* u is the unit vector from v */
-		u = vector3_unit(v);
+		vector3_unit(&v, &u);
 
 		/*
 		 * prints points along the edge
@@ -116,7 +117,7 @@ print_edges(struct shape *s)
 			 * if the occlusion flag is set and a point shouldn't
 			 * be occluded, the rest of the loop prints the point
 			 */
-			occlude_val = occlude_point(s, (point3) {x, y, z}, s->edges[i]);
+			occlude_val = occlude_point(s, &((point3) {x, y, z}), &(s->edges[i]));
 			if (s->occlusion == CONVEX && occlude_val) {
 				continue;
 			}
@@ -183,7 +184,7 @@ print_vertices(struct shape *s)
 		z = s->vertices[i].z;
 
 		if (s->occlusion &&
-			occlude_point(s, (point3) {x, y, z}, edge)) {
+			occlude_point(s, &((point3) {x, y, z}), &edge)) {
 			continue;
 		}
 

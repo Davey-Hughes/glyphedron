@@ -12,11 +12,11 @@
 
 static
 int
-on_segment(point3 p0, point3 p1, point3 p2)
+on_segment(point3 *p0, point3 *p1, point3 *p2)
 {
-	if (p2.x <= fmax(p0.x, p1.x) && p2.x >= fmin(p0.x, p1.x) &&
-	    p2.y <= fmax(p0.y, p1.y) && p2.y >= fmin(p0.y, p1.y) &&
-	    p2.z <= fmax(p0.z, p1.z) && p2.z >= fmin(p0.z, p1.z)) {
+	if (p2->x <= fmax(p0->x, p1->x) && p2->x >= fmin(p0->x, p1->x) &&
+	    p2->y <= fmax(p0->y, p1->y) && p2->y >= fmin(p0->y, p1->y) &&
+	    p2->z <= fmax(p0->z, p1->z) && p2->z >= fmin(p0->z, p1->z)) {
 		return 1;
 	}
 
@@ -32,7 +32,7 @@ on_segment(point3 p0, point3 p1, point3 p2)
  */
 static
 int
-orientation(point3 p0, point3 p1, point3 p2, struct face face)
+orientation(point3 *p0, point3 *p1, point3 *p2, struct face *face)
 {
 	double dot;
 	point3 t0, t1, t2;
@@ -43,14 +43,14 @@ orientation(point3 p0, point3 p1, point3 p2, struct face face)
 	 * if n ⋅ ((p1 - p0) × (p2 - p0)) = 0 then the points are colinear
 	 */
 
-	t0 = vector3_sub(p1, p0);
-	t1 = vector3_sub(p2, p0);
+	vector3_sub(p1, p0, &t0);
+	vector3_sub(p2, p0, &t1);
 
 	/* t0 × t1 */
-	t2 = vector3_cross(t0, t1);
+	vector3_cross(&t0, &t1, &t2);
 
 	/* normal ⋅ t2 */
-	dot = vector3_dot(face.normal, t2);
+	dot = vector3_dot(&(face->normal), &t2);
 
 	if (dot < 0) {        /* clockwise */
 		return 1;
@@ -68,8 +68,8 @@ orientation(point3 p0, point3 p1, point3 p2, struct face face)
  */
 static
 int
-intersects(point3 f0, point3 f1, point3 inter,
-	   point3 far, struct face face)
+intersects(point3 *f0, point3 *f1, point3 *inter,
+	   point3 *far, struct face *face)
 {
 	int o0, o1, o2, o3;
 
@@ -112,7 +112,7 @@ intersects(point3 f0, point3 f1, point3 inter,
  */
 static
 int
-is_inside(struct shape *s, point3 inter, point3 far, struct face face)
+is_inside(struct shape *s, point3 *inter, point3 *far, struct face *face)
 {
 	int count, i, next_v;
 
@@ -123,23 +123,23 @@ is_inside(struct shape *s, point3 inter, point3 far, struct face face)
 	i = 0;
 	while (1) {
 		/* next vertex */
-		next_v = (i + 1) % face.num_v;
+		next_v = (i + 1) % face->num_v;
 
 		/*
 		 * first check if the line segment from inter to far intersects
 		 * the edge from the face vertices with indices i and next_v
 		 */
-		if (intersects(s->vertices[face.face[i]],
-			       s->vertices[face.face[next_v]], inter, far, face)) {
+		if (intersects(&(s->vertices[face->face[i]]),
+			       &(s->vertices[face->face[next_v]]), inter, far, face)) {
 			/*
 			 * if the point inter is colinear with the line segment
 			 * given from i and next_v, check if it lies on the
 			 * segment
 			 */
-			if (orientation(s->vertices[face.face[i]], inter,
-				        s->vertices[face.face[next_v]], face) == 0) {
-				return on_segment(s->vertices[face.face[i]],
-						  s->vertices[face.face[next_v]], inter);
+			if (orientation(&(s->vertices[face->face[i]]), inter,
+				        &(s->vertices[face->face[next_v]]), face) == 0) {
+				return on_segment(&(s->vertices[face->face[i]]),
+						  &(s->vertices[face->face[next_v]]), inter);
 			}
 
 			count++;
@@ -166,8 +166,8 @@ is_inside(struct shape *s, point3 inter, point3 far, struct face face)
  */
 static
 int
-point_in_polygon(struct shape *s, point3 inter, struct face face,
-		 point3 coeffs, double d)
+point_in_polygon(struct shape *s, point3 *inter, struct face *face,
+		 point3 *coeffs, double d)
 {
 	double z;
 
@@ -183,28 +183,28 @@ point_in_polygon(struct shape *s, point3 inter, struct face face,
 	 * passed into this function
 	 */
 
-	z = (d - (coeffs.x * 10000) - (coeffs.y * 0)) / coeffs.z;
+	z = (d - (coeffs->x * 10000) - (coeffs->y * 0)) / coeffs->z;
 
 	/*
 	 * now the line segment is defined by the points inter and
 	 * {10000, 0, z}
 	 */
 
-	return is_inside(s, inter, (point3) {10000, 0, z}, face);
+	return is_inside(s, inter, &((point3) {10000, 0, z}), face);
 }
 
 /*
  * returns 1 if p0 is between p1 and p2, 0 otherwise
  */
 int
-is_between(point3 p0, point3 p1, point3 p2)
+is_between(point3 *p0, point3 *p1, point3 *p2)
 {
-	return ((p1.x < p0.x && p0.x < p2.x) ||
-	        (p2.x < p0.x && p0.x < p1.x)) &&
-	       ((p1.y < p0.y && p0.y < p2.y) ||
-		(p2.y < p0.y && p0.y < p1.y)) &&
-	       ((p1.z < p0.z && p0.z < p2.z) ||
-		(p2.z < p0.z && p0.z < p1.z));
+	return ((p1->x < p0->x && p0->x < p2->x) ||
+	        (p2->x < p0->x && p0->x < p1->x)) &&
+	       ((p1->y < p0->y && p0->y < p2->y) ||
+		(p2->y < p0->y && p0->y < p1->y)) &&
+	       ((p1->z < p0->z && p0->z < p2->z) ||
+		(p2->z < p0->z && p0->z < p1->z));
 }
 
 /*
@@ -213,7 +213,7 @@ is_between(point3 p0, point3 p1, point3 p2)
  * returns 0 if point should be rendered, else 1
  */
 int
-occlude_point_convex(struct shape *s, point3 point, struct edge edge)
+occlude_point_convex(struct shape *s, point3 *point, struct edge *edge)
 {
 	int i, k, next_v, flag;
 	double d, t;
@@ -239,7 +239,7 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		 * vertex)
 		 */
 
-		if (edge.edge[0] < 0 || edge.edge[1] < 0) {
+		if (edge->edge[0] < 0 || edge->edge[1] < 0) {
 			continue;
 		}
 
@@ -247,10 +247,10 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		while (1) {
 			next_v = (k + 1) % s->faces[i].num_v;
 
-			if ((edge.edge[0] == s->faces[i].face[k] &&
-			     edge.edge[1] == s->faces[i].face[next_v]) ||
-			    (edge.edge[0] == s->faces[i].face[next_v] &&
-			     edge.edge[1] == s->faces[i].face[k])) {
+			if ((edge->edge[0] == s->faces[i].face[k] &&
+			     edge->edge[1] == s->faces[i].face[next_v]) ||
+			    (edge->edge[0] == s->faces[i].face[next_v] &&
+			     edge->edge[1] == s->faces[i].face[k])) {
 				flag = 1;
 				break;
 			}
@@ -271,13 +271,15 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		 * two vectors from the points that define the plane-face of
 		 * the object
 		 */
-		v0 = vector3_sub(s->vertices[s->faces[i].face[0]],
-				 s->vertices[s->faces[i].face[1]]);
-		v1 = vector3_sub(s->vertices[s->faces[i].face[0]],
-				 s->vertices[s->faces[i].face[2]]);
+		vector3_sub(&(s->vertices[s->faces[i].face[0]]),
+			    &(s->vertices[s->faces[i].face[1]]),
+			    &v0);
+		vector3_sub((&s->vertices[s->faces[i].face[0]]),
+			     &(s->vertices[s->faces[i].face[2]]),
+			     &v1);
 
 		/* n is the cross product of the two vectors */
-		n = vector3_cross(v0, v1);
+		vector3_cross(&v0, &v1, &n);
 
 		s->faces[i].normal.x = n.x;
 		s->faces[i].normal.y = n.y;
@@ -290,7 +292,7 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		 * and d is given by solving ax + by + cz = 0, where x, y, and
 		 * z are the x, y, and z from any one of the intial points
 		 */
-		d = vector3_dot(n, s->vertices[s->faces[i].face[0]]);
+		d = vector3_dot(&n, &(s->vertices[s->faces[i].face[0]]));
 
 		/*
 		 * the intersection of the line between the point we're
@@ -304,15 +306,15 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		 * equation of the plane.
 		 */
 
-		t = (d - (n.x * point.x + n.y * point.y + n.z * point.z)) /
-			 (n.x * (s->cop.x - point.x) +
-			  n.y * (s->cop.y - point.y) +
-			  n.z * (s->cop.z - point.z));
+		t = (d - (n.x * point->x + n.y * point->y + n.z * point->z)) /
+			 (n.x * (s->cop.x - point->x) +
+			  n.y * (s->cop.y - point->y) +
+			  n.z * (s->cop.z - point->z));
 
 		/* inter is the intersection point */
-		inter.x = (point.x + (t * (s->cop.x - point.x)));
-		inter.y = (point.y + (t * (s->cop.y - point.y)));
-		inter.z = (point.z + (t * (s->cop.z - point.z)));
+		inter.x = (point->x + (t * (s->cop.x - point->x)));
+		inter.y = (point->y + (t * (s->cop.y - point->y)));
+		inter.z = (point->z + (t * (s->cop.z - point->z)));
 
 
 		/*
@@ -320,7 +322,7 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		 * projection and the input point, skip the point in polygon
 		 * calculation
 		 */
-		if (!is_between(inter, s->cop, point)) {
+		if (!is_between(&inter, &(s->cop), point)) {
 			continue;
 		}
 
@@ -328,7 +330,7 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		 * if the intersection is not on a face, loop again to check
 		 * the next face
 		 */
-		if (!point_in_polygon(s, inter, s->faces[i], n, d)) {
+		if (!point_in_polygon(s, &inter, &(s->faces[i]), &n, d)) {
 			continue;
 		}
 
@@ -337,7 +339,7 @@ occlude_point_convex(struct shape *s, point3 point, struct edge edge)
 		 * of the point (determined just by z value), then occlude the
 		 * point
 		 */
-		if (point.z < inter.z) {
+		if (point->z < inter.z) {
 			return 1;
 		}
 	}

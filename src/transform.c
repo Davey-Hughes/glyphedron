@@ -80,9 +80,9 @@ scale_shape(double mag, struct shape *s)
 	int i;
 
 	for (i = 0; i < s->num_v; ++i) {
-		s->vertices[i] = vector3_sub(s->vertices[i], s->center);
-		s->vertices[i] = vector3_mult(s->vertices[i], mag);
-		s->vertices[i] = vector3_add(s->vertices[i], s->center);
+		vector3_sub(&(s->vertices[i]), &(s->center), &(s->vertices[i]));
+		vector3_mult(&(s->vertices[i]), mag, &(s->vertices[i]));
+		vector3_add(&(s->vertices[i]), &(s->center), &(s->vertices[i]));
 	}
 }
 
