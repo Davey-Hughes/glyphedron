@@ -1,6 +1,7 @@
 #include <ncurses.h>
 
 #include "print.h"
+#include "convex_occlusion.h"
 #include "vector.h"
 #include "term_shapes.h"
 
@@ -51,6 +52,19 @@ search_finished(struct shape *s, int x, int y, ssize_t fronts_len, ssize_t behin
 }
 
 /*
+ * midpoint between two points
+ * TODO: move somewhere else
+ */
+static
+void
+midpoint(point3 *p0, point3 *p1, point3 *mp)
+{
+	mp->x = (p0->x + p1->x) / 2;
+	mp->y = (p0->y + p1->y) / 2;
+	mp->z = (p0->z + p1->z) / 2;
+}
+
+/*
  * prints the edges by calculating the normal vector from two given points, and
  * then prints points along the edge by multiplying the normal
  */
@@ -63,6 +77,7 @@ print_edges(struct shape *s)
 	int i, k, winx, winy;
 	double x0, y0, z0, v_len, x, y, z, movex, movey;
 	point3 v, u;
+	enum edge_occlusion edge_occlude_state;
 
 	getmaxyx(stdscr, winy, winx);
 
@@ -84,6 +99,42 @@ print_edges(struct shape *s)
 
 		/* u is the unit vector from v */
 		vector3_unit(&v, &u);
+
+		/*
+		 * if both vertices are occluded, then all the points in
+		 * between are occluded.
+		 *
+		 * if neither vertices are occluded, then none of the points in
+		 * betwen are occluded
+		 *
+		 * if one vertex is occluded and the other is not occluded,
+		 * then do the occlusion calculation on every point on the edge
+		 */
+		edge_occlude_state = PARTIAL;
+
+		if (s->occlusion == CONVEX ||
+		    s->occlusion == CONVEX_CLEAR) {
+			int occ0, occ1, occ_mp;
+			point3 *p0, *p1;
+			point3 mp;
+
+			p0 = &(s->vertices[s->edges[i].edge[0]]);
+			p1 = &(s->vertices[s->edges[i].edge[1]]);
+
+			occ0 = occlude_point_convex(s, p0, &(s->edges[i]));
+			occ1 = occlude_point_convex(s, p1, &(s->edges[i]));
+
+			if (occ0 == 0 && occ1 == 0) {
+				midpoint(p0, p1, &mp);
+				occ_mp = occlude_point_convex(s, &mp, &(s->edges[i]));
+				if (occ_mp == 0) {
+					edge_occlude_state = NEITHER;
+				}
+			} else if (occ0 == 1 && occ1 == 1) {
+				edge_occlude_state = BOTH;
+			}
+		}
+
 
 		/*
 		 * prints points along the edge
@@ -117,7 +168,14 @@ print_edges(struct shape *s)
 			 * if the occlusion flag is set and a point shouldn't
 			 * be occluded, the rest of the loop prints the point
 			 */
-			occlude_val = occlude_point(s, &((point3) {x, y, z}), &(s->edges[i]));
+			if (edge_occlude_state == PARTIAL) {
+				occlude_val = occlude_point(s,
+						&((point3) {x, y, z}),
+						&(s->edges[i]));
+			} else {
+				occlude_val = edge_occlude_state;
+			}
+
 			if (s->occlusion == CONVEX && occlude_val) {
 				continue;
 			}
