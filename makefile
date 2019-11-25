@@ -1,9 +1,32 @@
-all: term_shapes
+CXX := g++-9
+CXXFLAGS := -std=c++17 -Wall -Werror -Wextra -pedantic-errors
+LDFLAGS := -lm -lncurses
+BUILD := ./build
+OBJ_DIR := $(BUILD)/objects
+APP_DIR := $(BUILD)/apps
+TARGET := term_shapes
+INCLUDE := -Iinclude/
+SRC := $(wildcard src/*cc)
 
-sources=src/vector.c src/timing.c src/convex_occlusion.c src/occlude_approx.c src/print.c src/init.c src/transform.c src/term_shapes.c
+OBJECTS := $(SRC:%.cc=$(OBJ_DIR)/%.o)
 
-term_shapes: src/term_shapes.c include/term_shapes.h src/timing.c include/timing.h
-	gcc -std=c11 -Wall -Werror -Wpedantic -O3 -o term_shapes $(sources) -lm -lncurses -Iinclude
+all: main
+
+main: src/main.cc
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $<
+
+.PHONY: all build clean debug release
+
+build:
+	@mkdir -p $(APP_DIR)
+	@mkdir -p $(OBJ_DIR)
+
+debug: CXXFLAGS += -DDEBUG -g
+debug: all
+
+release: CXXFLAGS += -O3
+release: all
 
 clean:
-	rm -rf term_shapes log.txt
+	-@rm -rvf $(BUILD)
+	-@rm -rvf $(TARGET)
