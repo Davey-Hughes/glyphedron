@@ -53,8 +53,3 @@ of the two points (from the previous n lines) that makes up an edge.
 
 Examples of the shape input file are in the shapes directory. It is possible to
 input a file that describes 0 edges, but 0 must be specified in the first line.
-
-## Comments
-Occlusion for convex shapes has been added, as shown in the image below:
-
-![alt text](https://github.com/Davey-Hughes/term-shapes/blob/master/images/dodecahedron_occlusion.png "dodecahedron_occlusion")
