@@ -48,7 +48,7 @@ init_from_file(char *fname, struct shape *s)
 		goto cleanup_log_file;
 	}
 
-	/* read number of vertices and edges */
+	/* read number of vertices, edges, and faces */
 	err = fscanf(file, "%i, %i, %i", &num_v, &num_e, &num_f);
 	if (err == EOF) {
 		fprintf(stderr, "Returned EOF when reading first line of shape file\n");
