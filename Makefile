@@ -1,6 +1,9 @@
+TARGET := term_shapes
 BUILD := ./build
 OBJDIR := $(BUILD)/objects
+BINDIR := $(BUILD)/bin
 DEPDIR := $(OBJDIR)/.deps
+BASE_SRC := src
 
 BASE_FLAGS := -Wall -Werror -Wextra -pedantic-errors
 
@@ -16,8 +19,8 @@ DEPFLAGS = -MT $@ -MD -MP -MF $(DEPDIR)/$*.Td
 CTARGET := c_term_shapes
 CC := gcc-11
 CFLAGS := -std=c11 $(BASE_FLAGS)
-CINCLUDE := -Ic_include
-CSRC := $(wildcard c_src/*.c)
+CINCLUDE := -I$(BASE_SRC)/c/include
+CSRC := $(wildcard $(BASE_SRC)/c/src/*.c)
 COBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CSRC)))
 CDEPS := $(patsubst %,$(DEPDIR)/%.d,$(basename $(CSRC)))
 
@@ -25,8 +28,8 @@ CXXTARGET := term_shapes
 CXX := g++-11
 CXXFLAGS := -std=c++17 $(BASE_FLAGS)
 SYSINCLUDE := -isystem /usr/local/include/eigen3
-CXXINCLUDE := -Iinclude/
-CXXSRC := $(wildcard src/*.cc)
+CXXINCLUDE := -I$(BASE_SRC)/cpp/include
+CXXSRC := $(wildcard $(BASE_SRC)/cpp/src/*.cc)
 CXXOBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CXXSRC)))
 CXXDEPS := $(patsubst %,$(DEPDIR)/%.d,$(basename $(CXXSRC)))
 
@@ -35,7 +38,7 @@ COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CINCLUDE) -c -o $@
 # compile C++ source files
 COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CXXINCLUDE) $(SYSINCLUDE) -c -o $@
 # link object files to binary
-LINK.o = $(LD) $(LDFLAGS) -o $@
+LINK.o = $(LD) $(LDFLAGS) -o $(BINDIR)/$@
 # precompile step
 PRECOMPILE =
 # postcompile step
@@ -43,9 +46,13 @@ POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
 .PHONY: all c_impl clean # debug release
 
-all: $(CXXTARGET)
+all: c cc
 
-c_impl: $(CTARGET)
+c: $(CTARGET)
+	ln -sf $(BINDIR)/$(CTARGET) $(TARGET)
+
+cc: $(CXXTARGET)
+	ln -sf $(BINDIR)/$(CXXTARGET) $(TARGET)
 
 # debug: CXXFLAGS += -DDEBUG -g
 # debug: all
@@ -55,14 +62,15 @@ c_impl: $(CTARGET)
 
 clean:
 	rm -rvf $(BUILD)
-	rm -rvf $(CTARGET)
-	rm -rvf $(CXXTARGET)
+	rm -vf $(TARGET)
 	rm -f log.txt
 
 $(CTARGET): $(COBJS)
+	-@mkdir -p $(BINDIR)
 	$(LINK.o) $^
 
 $(CXXTARGET): $(CXXOBJS)
+	-@mkdir -p $(BINDIR)
 	$(LINK.o) $^
 
 $(OBJDIR)/%.o: %.c
