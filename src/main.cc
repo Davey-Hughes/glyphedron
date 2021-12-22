@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2019  Davey Hughes
+ *     Copyright (C) 2022  Davey Hughes
  *
  *     This program is free software: you can redistribute it and/or modify it
  *     under the terms of the GNU General Public License as published by the
@@ -16,11 +16,15 @@
  */
 
 #include <iostream>
-#include <vector>
+#include <Eigen/Dense>
+
+using Eigen::Vector3f;
 
 int
 main()
 {
-	std::cout << "hello, world.." << std::endl;
+	Vector3f m;
+	m << 1.0, 2.0, 3.0;
+	std::cout << m << std::endl;
 	return 0;
 }

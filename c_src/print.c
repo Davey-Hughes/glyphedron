@@ -13,7 +13,7 @@
  */
 static
 enum t_pixel_print
-movexy(double *x, double *y, struct shape *s)
+movexy(double *x, double *y)
 {
 	int winx, winy;
 	double integralx, integraly, fractionalx, fractionaly;
@@ -168,7 +168,7 @@ print_edges(struct shape *s)
 
 			movex = x;
 			movey = y;
-			tpp = movexy(&movex, &movey, s);
+			tpp = movexy(&movex, &movey);
 
 			/*
  			 * only worry about points that are on screen and that
@@ -289,7 +289,7 @@ print_vertices(struct shape *s)
 			continue;
 		}
 
-		movexy(&x, &y, s);
+		movexy(&x, &y);
 #if USE_NCURSES
 		mvprintw(y, x, "%i", i);
 #endif
