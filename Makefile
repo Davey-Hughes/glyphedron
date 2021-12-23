@@ -8,24 +8,24 @@ BASE_SRC := src
 BASE_FLAGS := -Wall -Werror -Wextra -pedantic-errors
 
 # linker
-LD := g++-11
+LD := clang++
 # linker flags
-LDFLAGS := -lm -lncurses
+LDFLAGS :=
 # linker flags: libraries to link (e.g. -lfoo)
-LDLIBS :=
+LDLIBS := -lm -lncurses
 # flags required for dependency generation; passed to compilers
 DEPFLAGS = -MT $@ -MD -MP -MF $(DEPDIR)/$*.Td
 
 CTARGET := c_term_shapes
-CC := gcc-11
+CC := clang
 CFLAGS := -std=c11 $(BASE_FLAGS)
 CINCLUDE := -I$(BASE_SRC)/c/include
 CSRC := $(wildcard $(BASE_SRC)/c/src/*.c)
 COBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CSRC)))
 CDEPS := $(patsubst %,$(DEPDIR)/%.d,$(basename $(CSRC)))
 
-CXXTARGET := term_shapes
-CXX := g++-11
+CXXTARGET := cc_term_shapes
+CXX := clang++
 CXXFLAGS := -std=c++17 $(BASE_FLAGS)
 SYSINCLUDE := -isystem /usr/local/include/eigen3
 CXXINCLUDE := -I$(BASE_SRC)/cpp/include
@@ -38,7 +38,7 @@ COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CINCLUDE) -c -o $@
 # compile C++ source files
 COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CXXINCLUDE) $(SYSINCLUDE) -c -o $@
 # link object files to binary
-LINK.o = $(LD) $(LDFLAGS) -o $(BINDIR)/$@
+LINK.o = $(LD) $(LDFLAGS) $(LDLIBS) -o $(BINDIR)/$@
 # precompile step
 PRECOMPILE =
 # postcompile step

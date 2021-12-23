@@ -8,7 +8,8 @@
 !*/
 
 ### the above ignores files without an extension
+build/*
 .ccls*
 log.txt
 *.DS_Store
-build/*
+compile_commands.json

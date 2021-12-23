@@ -16,15 +16,18 @@
  */
 
 #include <iostream>
-#include <Eigen/Dense>
 
-using Eigen::Vector3f;
+#include "shape.hh"
 
 int
-main()
+main(int argc, char** argv)
 {
-	Vector3f m;
-	m << 1.0, 2.0, 3.0;
-	std::cout << m << std::endl;
+	if (argc < 2) {
+		std::cerr << "File must be specified" << std::endl;
+		exit(1);
+	}
+
+	TS::Shape s(argv[1]);
+
 	return 0;
 }
