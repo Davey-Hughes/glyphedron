@@ -44,7 +44,7 @@ PRECOMPILE =
 # postcompile step
 POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
-.PHONY: all c_impl clean # debug release
+.PHONY: all c_impl clean
 
 all: c cc
 
@@ -54,11 +54,17 @@ c: $(CTARGET)
 cc: $(CXXTARGET)
 	ln -sf $(BINDIR)/$(CXXTARGET) $(TARGET)
 
-# debug: CXXFLAGS += -DDEBUG -g
-# debug: all
+debug_c: CFLAGS += -DDEBUG -g
+debug_c: c
 
-# release: CXXFLAGS += -O3
-# release: all
+debug_cc: CXXFLAGS += -DDEBUG -g
+debug_cc: cc
+
+release_c: CFLAGS += -O3
+release_c: c
+
+release_cc: CXXFLAGS += -O3
+release_cc: cc
 
 clean:
 	rm -rvf $(BUILD)

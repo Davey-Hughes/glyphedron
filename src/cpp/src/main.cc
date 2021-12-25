@@ -16,8 +16,24 @@
  */
 
 #include <iostream>
+/* #include <chrono> */
+/* #include <vector> */
+
+/* #include <Eigen/Dense> */
+
+/* #define VEC_SIZE 100000 */
 
 #include "shape.hh"
+
+/* void */
+/* rotate(std::vector<Eigen::Vector3d>& vecs, Eigen::Quaterniond rot) */
+/* { */
+	/* auto rot_matrix = rot.toRotationMatrix(); */
+
+	/* for (auto &v: vecs) { */
+		/* v = rot_matrix * v; */
+	/* } */
+/* } */
 
 int
 main(int argc, char** argv)
@@ -27,7 +43,24 @@ main(int argc, char** argv)
 		exit(1);
 	}
 
-	TS::Shape s(argv[1]);
+	auto s = TS::Shape(argv[1]);
+
+	/* std::vector<Eigen::Vector3d> vecs(VEC_SIZE); */
+
+	/* auto f = []() -> Eigen::Vector3d { */
+		/* return Eigen::Vector3d::Random(); */
+	/* }; */
+
+	/* std::generate(vecs.begin(), vecs.end(), f); */
+
+	/* Eigen::Quaterniond r; */
+	/* r = Eigen::AngleAxisd(M_PI_4, Eigen::Vector3d::UnitX()); */
+
+	/* auto start = std::chrono::high_resolution_clock::now(); */
+	/* rotate(vecs, r); */
+	/* auto stop = std::chrono::high_resolution_clock::now(); */
+	/* auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); */
+	/* std::cout << duration.count() << std::endl; */
 
 	return 0;
 }
