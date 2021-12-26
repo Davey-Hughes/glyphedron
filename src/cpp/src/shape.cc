@@ -3,12 +3,102 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <functional>
 
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
 
+#include <ncurses.h>
+
 namespace TS {
-Shape::Shape(const char* fname)
+Shape::Shape(int argc, char **argv)
+{
+	if (argc > 1) {
+		init(argv[1]);
+	} else {
+		init("./shapes/platonic_solids/cube.txt");
+	}
+}
+
+Shape::Shape(std::string fname)
+{
+	init(fname);
+}
+
+void
+Shape::set_win(WINDOW *win)
+{
+	this->win = win;
+}
+
+void
+Shape::toggle_print_vertices()
+{
+	this->b_print_vertices = !this->b_print_vertices;
+}
+
+void
+Shape::toggle_print_edges()
+{
+	this->b_print_edges = !this->b_print_edges;
+}
+
+void
+Shape::increase_e_density()
+{
+	this->e_density++;
+}
+
+void
+Shape::decrease_e_density()
+{
+	if (this->e_density > 0) {
+		this->e_density--;
+	}
+}
+
+void
+Shape::print()
+{
+	wclear(this->win);
+
+	if (this->b_print_vertices) {
+		print_vertices();
+	}
+
+	wrefresh(this->win);
+}
+
+void
+Shape::rotate(Eigen::Matrix3d rotation)
+{
+	for (auto &v: this->vertices) {
+		v = rotation * v;
+	}
+
+	for (auto &f: this->faces) {
+		f.calc_normal();
+	}
+}
+
+void
+Shape::scale(double scalar)
+{
+	for (auto &v: this->vertices) {
+		v *= scalar;
+	}
+}
+
+void
+Shape::translate(Eigen::Vector3d translation)
+{
+	for (auto &v: this->vertices) {
+		v += translation;
+	}
+}
+
+void
+Shape::init(std::string fname)
 {
 	std::ifstream f(fname);
 	if (!f) {
@@ -53,8 +143,9 @@ Shape::Shape(const char* fname)
 			cur_face.vertices.push_back(&(this->vertices[p]));
 		}
 
-		/* TODO: determine whether normal should be calculated here */
+		cur_face.calc_normal();
 
+		this->faces.push_back(cur_face);
 	}
 
 	f.close();
@@ -86,5 +177,37 @@ Shape::read_block(std::ifstream& f)
 	}
 
 	return vec;
+}
+
+void
+Shape::movexy(double &x, double &y)
+{
+	int winx, winy;
+	getmaxyx(this->win, winy, winx);
+
+	double fractionalx = ((x * SCALE * winy) + (0.5 * winx));
+	double fractionaly = (-(y * SCALE * .5 * winy) + (0.5 * winy));
+
+	double integralx, integraly;
+	fractionalx = modf(fractionalx, &integralx);
+	fractionaly = modf(fractionaly, &integraly);
+
+	x = integralx;
+	y = integraly;
+}
+
+void
+Shape::print_vertices()
+{
+	size_t idx = 0;
+	for (auto v: this->vertices) {
+		double x = v[0];
+		double y = v[1];
+
+		movexy(x, y);
+		mvwprintw(this->win, y, x, "%zu", idx);
+
+		idx++;
+	}
 }
 }

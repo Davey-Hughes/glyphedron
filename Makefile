@@ -58,6 +58,7 @@ debug_c: CFLAGS += -DDEBUG -g
 debug_c: c
 
 debug_cc: CXXFLAGS += -DDEBUG -g
+debug_cc: LDLIBS += -fsanitize=leak
 debug_cc: cc
 
 release_c: CFLAGS += -O3

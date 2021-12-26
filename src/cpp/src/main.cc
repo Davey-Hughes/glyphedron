@@ -16,51 +16,141 @@
  */
 
 #include <iostream>
-/* #include <chrono> */
-/* #include <vector> */
+#include <vector>
 
-/* #include <Eigen/Dense> */
-
-/* #define VEC_SIZE 100000 */
+#include <ncurses.h>
 
 #include "shape.hh"
 
-/* void */
-/* rotate(std::vector<Eigen::Vector3d>& vecs, Eigen::Quaterniond rot) */
-/* { */
-	/* auto rot_matrix = rot.toRotationMatrix(); */
+void
+loop(TS::Shape s)
+{
+	/* start ncurses mode */
+	initscr();
+	noecho();
+	cbreak();
+	keypad(stdscr, TRUE);
+	curs_set(0);
 
-	/* for (auto &v: vecs) { */
-		/* v = rot_matrix * v; */
-	/* } */
-/* } */
+	s.set_win(stdscr);
+
+	Eigen::Matrix3d rot;
+	double theta = M_PI / 200;
+	double dist = 0.1;
+	double scale = 1.1;
+
+	while (1) {
+		s.print();
+
+		int c = getch();
+		switch(c) {
+
+		/* quit */
+		case 'q':
+			endwin();
+			return;
+
+
+		/* ** ROTATIONS ** */
+		/* rotate around z axis */
+		case 't':
+			rot = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ());
+			s.rotate(rot);
+			break;
+		case 'y':
+			rot = Eigen::AngleAxisd(-theta, Eigen::Vector3d::UnitZ());
+			s.rotate(rot);
+			break;
+
+		/* rotate around z axis */
+		case 'u':
+			rot = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitX());
+			s.rotate(rot);
+			break;
+		case 'i':
+			rot = Eigen::AngleAxisd(-theta, Eigen::Vector3d::UnitX());
+			s.rotate(rot);
+			break;
+
+		/* rotate around y axis */
+		case 'o':
+			rot = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitY());
+			s.rotate(rot);
+			break;
+		case 'p':
+			rot = Eigen::AngleAxisd(-theta, Eigen::Vector3d::UnitY());
+			s.rotate(rot);
+			break;
+
+		/* ** SCALE ** */
+		case '=':
+			s.scale(scale);
+			break;
+
+		case '-':
+			s.scale(1.0 / scale);
+			break;
+
+
+		/* ** TRANSLATIONS ** */
+		/* translate along x axis */
+		case 'h':
+			s.translate({-dist, 0, 0});
+			break;
+		case 'l':
+			s.translate({dist, 0, 0});
+			break;
+
+		/* translate along y axis */
+		case 'j':
+			s.translate({0, -dist, 0});
+			break;
+		case 'k':
+			s.translate({0, dist, 0});
+			break;
+
+		/* translate along z axis */
+		case 'f':
+			s.translate({0, 0, -dist});
+			break;
+		case 'g':
+			s.translate({0, 0, dist});
+			break;
+
+
+		/* flip printing of vertices */
+		case '1':
+			s.toggle_print_vertices();
+			break;
+
+		/* flip printing of edges */
+		case '2':
+			s.toggle_print_edges();
+			break;
+
+
+		/* ** CHANGE EDGE DENSITY ** */
+		/* increase edge density */
+		case '0':
+			s.increase_e_density();
+			break;
+
+		/* decrease edge density */
+		case '9':
+			s.decrease_e_density();
+			break;
+
+		default:
+			continue;
+		}
+	}
+}
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
-	if (argc < 2) {
-		std::cerr << "File must be specified" << std::endl;
-		exit(1);
-	}
-
-	auto s = TS::Shape(argv[1]);
-
-	/* std::vector<Eigen::Vector3d> vecs(VEC_SIZE); */
-
-	/* auto f = []() -> Eigen::Vector3d { */
-		/* return Eigen::Vector3d::Random(); */
-	/* }; */
-
-	/* std::generate(vecs.begin(), vecs.end(), f); */
-
-	/* Eigen::Quaterniond r; */
-	/* r = Eigen::AngleAxisd(M_PI_4, Eigen::Vector3d::UnitX()); */
-
-	/* auto start = std::chrono::high_resolution_clock::now(); */
-	/* rotate(vecs, r); */
-	/* auto stop = std::chrono::high_resolution_clock::now(); */
-	/* auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); */
-	/* std::cout << duration.count() << std::endl; */
+	auto s = TS::Shape(argc, argv);
+	loop(s);
 
 	return 0;
 }
