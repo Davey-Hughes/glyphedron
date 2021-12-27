@@ -17,13 +17,17 @@
 
 #include <iostream>
 #include <vector>
+#include <chrono>
+#include <unordered_map>
+
+#include <Eigen/Dense>
 
 #include <ncurses.h>
 
 #include "shape.hh"
 
 void
-loop(TS::Shape s)
+loop(TS::Shape &s)
 {
 	/* start ncurses mode */
 	initscr();
@@ -34,15 +38,34 @@ loop(TS::Shape s)
 
 	s.set_win(stdscr);
 
+	/* std::chrono::time_point<std::chrono::high_resolution_clock> op_start, op_end, p_start, p_end; */
+
+	/* transformation variables */
 	Eigen::Matrix3d rot;
 	double theta = M_PI / 200;
 	double dist = 0.1;
 	double scale = 1.1;
 
 	while (1) {
+		/* op_end = std::chrono::high_resolution_clock::now(); */
+		/* auto op_diff = std::chrono::duration_cast<std::chrono::microseconds>(op_end - op_start).count(); */
+
+		/* wclear(stdscr); */
+		/* mvwprintw(stdscr, 2, 1, "Operaton time: %05luµs", op_diff); */
+
+		/* p_start = std::chrono::high_resolution_clock::now(); */
 		s.print();
+		/* p_end = std::chrono::high_resolution_clock::now(); */
+
+		/* auto p_diff = std::chrono::duration_cast<std::chrono::microseconds>(p_end - p_start).count(); */
+		/* mvwprintw(stdscr, 1, 1, "Print time: %05luµs", p_diff); */
+
+		/* wrefresh(stdscr); */
 
 		int c = getch();
+
+		/* op_start = std::chrono::high_resolution_clock::now(); */
+
 		switch(c) {
 
 		/* quit */
@@ -149,6 +172,7 @@ loop(TS::Shape s)
 int
 main(int argc, char **argv)
 {
+
 	auto s = TS::Shape(argc, argv);
 	loop(s);
 

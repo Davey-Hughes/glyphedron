@@ -11,6 +11,9 @@
 #include <ncurses.h>
 
 namespace TS {
+/*
+ * public methods
+ */
 Shape::Shape(int argc, char **argv)
 {
 	if (argc > 1) {
@@ -63,7 +66,11 @@ Shape::print()
 	wclear(this->win);
 
 	if (this->b_print_vertices) {
-		print_vertices();
+		this->print_vertices();
+	}
+
+	if (this->b_print_edges) {
+		this->print_edges();
 	}
 
 	wrefresh(this->win);
@@ -73,7 +80,7 @@ void
 Shape::rotate(Eigen::Matrix3d rotation)
 {
 	for (auto &v: this->vertices) {
-		v = rotation * v;
+		v = (rotation * (v - this->center)) + this->center;
 	}
 
 	for (auto &f: this->faces) {
@@ -85,7 +92,7 @@ void
 Shape::scale(double scalar)
 {
 	for (auto &v: this->vertices) {
-		v *= scalar;
+		v = ((v - this->center) * scalar) + this->center;
 	}
 }
 
@@ -95,8 +102,13 @@ Shape::translate(Eigen::Vector3d translation)
 	for (auto &v: this->vertices) {
 		v += translation;
 	}
+
+	this->center += translation;
 }
 
+/*
+ * private methods
+ */
 void
 Shape::init(std::string fname)
 {
@@ -179,21 +191,28 @@ Shape::read_block(std::ifstream& f)
 	return vec;
 }
 
-void
-Shape::movexy(double &x, double &y)
+std::tuple<t_pixel_print, Eigen::Vector3d>
+Shape::movexy(Eigen::Vector3d v)
 {
 	int winx, winy;
+	Eigen::Vector3d retv;
 	getmaxyx(this->win, winy, winx);
 
-	double fractionalx = ((x * SCALE * winy) + (0.5 * winx));
-	double fractionaly = (-(y * SCALE * .5 * winy) + (0.5 * winy));
+	double fractionalx = ((v[0] * SCALE * winy) + (0.5 * winx));
+	double fractionaly = (-(v[1] * SCALE * .5 * winy) + (0.5 * winy));
 
 	double integralx, integraly;
 	fractionalx = modf(fractionalx, &integralx);
 	fractionaly = modf(fractionaly, &integraly);
 
-	x = integralx;
-	y = integraly;
+	retv[0] = integralx;
+	retv[1] = integraly;
+
+	if (fractionaly >= 0.5) {
+		return std::make_tuple(LOWER, retv);
+	}
+
+	return std::make_tuple(UPPER, retv);
 }
 
 void
@@ -201,13 +220,59 @@ Shape::print_vertices()
 {
 	size_t idx = 0;
 	for (auto v: this->vertices) {
-		double x = v[0];
-		double y = v[1];
+		Eigen::Vector3d u;
 
-		movexy(x, y);
-		mvwprintw(this->win, y, x, "%zu", idx);
+		std::tie(std::ignore, u) = movexy(v);
+		mvwprintw(this->win, u[1], u[0], "%zu", idx);
 
 		idx++;
+	}
+}
+
+void
+Shape::print_edges()
+{
+	int winx, winy;
+	getmaxyx(this->win, winy, winx);
+
+	this->fronts.clear();
+
+	/* iterate over the edges */
+	for (auto e: this->edges) {
+		Eigen::Vector3d v = *e[1] - *e[0];
+		double v_len = v.norm();
+		Eigen::Vector3d u = v.normalized();
+
+		/*
+		 * prints points along the edge
+		 *
+		 * e_density is a natural number directly corresponding to the
+		 * number of points printed along the edge
+		 */
+		for (auto k = 0; k <= this->e_density; ++k) {
+			Eigen::Vector3d w = *e[0] + ((k / this->e_density) * v_len) * u;
+
+			auto [tpp, p] = movexy(w);
+
+			/* skip points that are off the screen */
+			if (p[0] < 0 || p[0] > winx ||
+			    p[1] < 0 || p[1] > winy) {
+				continue;
+			}
+
+			/* TODO: clean this up */
+			if (this->fronts.count(p)) {
+				if (this->fronts[p] != tpp) {
+					this->fronts[p] = FULL;
+				}
+			} else {
+				this->fronts[p] = tpp;
+			}
+		}
+	}
+
+	for (auto val: this->fronts) {
+		mvwprintw(this->win, val.first[1], val.first[0], "%c", val.second);
 	}
 }
 }
