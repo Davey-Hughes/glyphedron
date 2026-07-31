@@ -8,7 +8,7 @@ BASE_SRC := src
 BASE_FLAGS := -Wall -Werror -Wextra -pedantic-errors
 
 # linker
-LD := clang++
+LD := clang
 # linker flags
 LDFLAGS :=
 # linker flags: libraries to link (e.g. -lfoo)
@@ -18,86 +18,89 @@ DEPFLAGS = -MT $@ -MD -MP -MF $(DEPDIR)/$*.Td
 
 CTARGET := c_term_shapes
 CC := clang
-CFLAGS := -std=c11 $(BASE_FLAGS)
+# ssize_t, nanosleep, clock_gettime and CLOCK_PROCESS_CPUTIME_ID are POSIX, not
+# ISO C. -std=c11 (as opposed to -std=gnu11) defines __STRICT_ANSI__, which
+# hides them in glibc unless a feature test macro asks for them explicitly.
+CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L $(BASE_FLAGS)
 CINCLUDE := -I$(BASE_SRC)/c/include
 CSRC := $(wildcard $(BASE_SRC)/c/src/*.c)
 COBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CSRC)))
 CDEPS := $(patsubst %,$(DEPDIR)/%.d,$(basename $(CSRC)))
 
-CXXTARGET := cc_term_shapes
-CXX := clang++
-CXXFLAGS := -std=c++17 $(BASE_FLAGS)
-SYSINCLUDE := -isystem /usr/local/include/eigen3
-CXXINCLUDE := -I$(BASE_SRC)/cpp/include
-CXXSRC := $(wildcard $(BASE_SRC)/cpp/src/*.cc)
-CXXOBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CXXSRC)))
-CXXDEPS := $(patsubst %,$(DEPDIR)/%.d,$(basename $(CXXSRC)))
+# sentinel files recording the flags each object and the binary were last built
+# with, so that switching between e.g. debug_c and release_c invalidates them.
+# without this, flags live only in the recipe and make sees nothing stale
+CFLAGSFILE := $(OBJDIR)/.cflags
+LDFLAGSFILE := $(OBJDIR)/.ldflags
 
 # compile C source files
 COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CINCLUDE) -c -o $@
-# compile C++ source files
-COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CXXINCLUDE) $(SYSINCLUDE) -c -o $@
-# link object files to binary
-LINK.o = $(LD) $(LDFLAGS) $(LDLIBS) -o $(BINDIR)/$@
+# link object files to binary; libraries must follow the objects that need them
+LINK.o = $(LD) $(LDFLAGS) -o $@
 # precompile step
 PRECOMPILE =
-# postcompile step
-POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
+# postcompile step; the touch keeps the object newer than the dep file it just
+# generated, otherwise every object looks stale against its own .d on the next
+# run and make rebuilds the whole tree
+POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d && touch $@
 
-.PHONY: all c_impl clean
+.PHONY: all c debug_c release_c clean FORCE
 
-all: c cc
+all: c
 
-c: $(CTARGET)
+c: $(BINDIR)/$(CTARGET)
 	ln -sf $(BINDIR)/$(CTARGET) $(TARGET)
-
-cc: $(CXXTARGET)
-	ln -sf $(BINDIR)/$(CXXTARGET) $(TARGET)
 
 debug_c: CFLAGS += -DDEBUG -g
 debug_c: c
 
-debug_cc: CXXFLAGS += -DDEBUG -g
-debug_cc: LDLIBS += -fsanitize=leak
-debug_cc: cc
-
 release_c: CFLAGS += -O3
 release_c: c
-
-release_cc: CXXFLAGS += -O3
-release_cc: cc
 
 clean:
 	rm -rvf $(BUILD)
 	rm -vf $(TARGET)
 	rm -f log.txt
 
-$(CTARGET): $(COBJS)
-	-@mkdir -p $(BINDIR)
-	$(LINK.o) $^
+#
+# the sentinels depend on FORCE so their recipes run on every build, but each
+# recipe rewrites its file only when the flags differ from the recorded ones.
+# an unchanged sentinel keeps its old mtime, so objects are not invalidated.
+#
+# these must not be created at parse time: `make clean` would then leave the
+# build directory behind, and `make clean all` would delete a sentinel make had
+# already stat'd. a normal rule is remade at the right point in the walk
+#
+# target-specific CFLAGS (debug_c, release_c) reach here because GNU make
+# passes them down to prerequisites, and the sentinel is a prerequisite of
+# every object
+#
+FORCE:
 
-$(CXXTARGET): $(CXXOBJS)
+$(CFLAGSFILE): FORCE
+	@mkdir -p $(@D)
+	@printf '%s' '$(CC) $(CFLAGS) $(CINCLUDE)' | cmp -s - $@ || \
+		printf '%s' '$(CC) $(CFLAGS) $(CINCLUDE)' > $@
+
+$(LDFLAGSFILE): FORCE
+	@mkdir -p $(@D)
+	@printf '%s' '$(LD) $(LDFLAGS) $(LDLIBS)' | cmp -s - $@ || \
+		printf '%s' '$(LD) $(LDFLAGS) $(LDLIBS)' > $@
+
+# $(COBJS) rather than $^, so the sentinel is not handed to the linker
+$(BINDIR)/$(CTARGET): $(COBJS) $(LDFLAGSFILE)
 	-@mkdir -p $(BINDIR)
-	$(LINK.o) $^
+	$(LINK.o) $(COBJS) $(LDLIBS)
 
 $(OBJDIR)/%.o: %.c
-$(OBJDIR)/%.o: %.c $(DEPDIR)/%.d
+$(OBJDIR)/%.o: %.c $(DEPDIR)/%.d $(CFLAGSFILE)
 	$(shell mkdir -p $(dir $(COBJS)) >/dev/null)
 	$(shell mkdir -p $(dir $(CDEPS)) >/dev/null)
 	$(PRECOMPILE)
 	$(COMPILE.c) $<
 	$(POSTCOMPILE)
 
-$(OBJDIR)/%.o: %.cc
-$(OBJDIR)/%.o: %.cc $(DEPDIR)/%.d
-	$(shell mkdir -p $(dir $(CXXOBJS)) >/dev/null)
-	$(shell mkdir -p $(dir $(CXXDEPS)) >/dev/null)
-	$(PRECOMPILE)
-	$(COMPILE.cc) $<
-	$(POSTCOMPILE)
-
 .PRECIOUS: $(DEPDIR)/%.d
 $(DEPDIR)/%.d: ;
 
 -include $(CDEPS)
--include $(CCDEPS)
