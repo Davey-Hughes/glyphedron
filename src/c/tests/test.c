@@ -1,11 +1,31 @@
 #include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "test.h"
 #include "term_shapes.h"
 #include "init.h"
 
+/*
+ * AddressSanitizer writes its reports to stderr, so silencing that descriptor
+ * under a sanitizer build would hide the very failures make test-asan exists
+ * to catch. clang exposes __has_feature; anything else is treated as unsanitized
+ */
+#if defined(__has_feature)
+# if __has_feature(address_sanitizer)
+#  define TEST_SANITIZED 1
+# endif
+#endif
+
+#ifndef TEST_SANITIZED
+# define TEST_SANITIZED 0
+#endif
+
 int test_checks_run;
 int test_checks_failed;
+
+/* the real stderr while it is redirected, or -1 when it is not */
+static int test_saved_stderr = -1;
 
 void
 test_fail(const char *expr, const char *file, int line)
@@ -30,6 +50,46 @@ test_fail_near(const char *expr, double actual, double expected,
 	test_checks_failed++;
 	printf("  %s:%d: %s == %.17g, expected %.17g\n",
 	       file, line, expr, actual, expected);
+}
+
+void
+test_silence_stderr(void)
+{
+	int devnull;
+
+	if (TEST_SANITIZED) {
+		return;
+	}
+
+	fflush(stderr);
+
+	test_saved_stderr = dup(STDERR_FILENO);
+	if (test_saved_stderr < 0) {
+		return;
+	}
+
+	devnull = open("/dev/null", O_WRONLY);
+	if (devnull < 0) {
+		close(test_saved_stderr);
+		test_saved_stderr = -1;
+		return;
+	}
+
+	dup2(devnull, STDERR_FILENO);
+	close(devnull);
+}
+
+void
+test_restore_stderr(void)
+{
+	if (test_saved_stderr < 0) {
+		return;
+	}
+
+	fflush(stderr);
+	dup2(test_saved_stderr, STDERR_FILENO);
+	close(test_saved_stderr);
+	test_saved_stderr = -1;
 }
 
 int

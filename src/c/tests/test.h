@@ -52,6 +52,18 @@ void test_fail_near(const char *expr, double actual, double expected,
 int test_shape_load(char *path, struct shape *s);
 void test_shape_unload(struct shape *s);
 
+/*
+ * brackets a call that is expected to report a parse error on stderr, so a
+ * passing run does not print diagnostics that look like something went wrong.
+ * failed checks are unaffected: they are written to stdout
+ *
+ * these do nothing under a sanitizer build, because AddressSanitizer writes
+ * its reports to the same file descriptor and losing one would defeat the
+ * coverage that only make test-asan provides
+ */
+void test_silence_stderr(void);
+void test_restore_stderr(void);
+
 /* suites, one per test_*.c file */
 void suite_vector(void);
 void suite_occlusion(void);

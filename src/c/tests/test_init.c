@@ -29,20 +29,18 @@ test_parses_a_good_file(void)
  * face array of every declared face, but only the faces parsed so far have
  * been allocated, so the rest are freed from uninitialised memory
  *
- * loading and unloading a good shape first leaves the allocator holding dirty
- * recycled chunks, which makes those uninitialised pointers much more likely
- * to be non-NULL garbage rather than a conveniently zeroed fresh page
+ * this only bites under make test-asan, where AddressSanitizer fills every
+ * fresh allocation with 0xbe and freeing that faults. a plain build usually
+ * frees the garbage in silence, so there the -1 below is the whole assertion
  */
 static void
 test_bad_face_index_fails_cleanly(void)
 {
-	struct shape prime;
 	struct shape s;
 
-	CHECK_EQ(test_shape_load(CUBE, &prime), 0);
-	test_shape_unload(&prime);
-
+	test_silence_stderr();
 	CHECK_EQ(init_from_file(BAD_FACE, &s), -1);
+	test_restore_stderr();
 }
 
 /*
@@ -57,7 +55,10 @@ test_face_index_one_past_end_rejected(void)
 	struct shape s;
 	int err;
 
+	test_silence_stderr();
 	err = init_from_file(AT_BOUND, &s);
+	test_restore_stderr();
+
 	CHECK_EQ(err, -1);
 
 	/*
