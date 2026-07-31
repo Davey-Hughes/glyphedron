@@ -209,7 +209,7 @@ approach, if it needs repeating:
    For a pentagram, intersect each pair of non-adjacent edges of the face to
    recover the inner pentagon, then take the five spikes.
 3. Cast rays from sampled edge points toward `{0, 0, 10000}`, the centre of
-   projection defined by `COP` in `term_shapes.h`.
+   projection defined by `COP` in `glyphedron.h`.
 4. Compare against a replica of `occlude_point_convex`, including the
    edge-sharing skip and the `0 < t < 1` test.
 

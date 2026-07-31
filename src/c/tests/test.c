@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include "test.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 #include "init.h"
 
 /*

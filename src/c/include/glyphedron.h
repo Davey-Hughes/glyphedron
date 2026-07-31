@@ -15,8 +15,8 @@
  *     with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef TERM_SHAPES_H
-#define TERM_SHAPES_H
+#ifndef GLYPHEDRON_H
+#define GLYPHEDRON_H
 
 #include <stdio.h>
 #include <time.h>
@@ -128,4 +128,4 @@ struct shape {
 	FILE *log; /* log file */
 };
 
-#endif /* TERM_SHAPES_H */
+#endif /* GLYPHEDRON_H */

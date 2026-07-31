@@ -2,7 +2,7 @@
 
 #include "convex_occlusion.h"
 #include "vector.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * index of the largest component of a vector by magnitude

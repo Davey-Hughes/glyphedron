@@ -1,7 +1,7 @@
 #ifndef INIT_H
 #define INIT_H
 
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /* prototypes */
 int init_from_file(char *fname, struct shape *s);

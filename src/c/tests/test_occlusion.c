@@ -1,5 +1,5 @@
 #include "test.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 #include "occlusion.h"
 #include "convex_occlusion.h"
 #include "init.h"

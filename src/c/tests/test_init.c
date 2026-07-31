@@ -1,5 +1,5 @@
 #include "test.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 #include "init.h"
 
 #define CUBE "./shapes/platonic_solids/cube.txt"

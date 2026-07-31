@@ -1,7 +1,7 @@
 #include "occlusion.h"
 #include "convex_occlusion.h"
 #include "occlude_approx.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * chooses which occlusion method to use based on the s.occlusion enum

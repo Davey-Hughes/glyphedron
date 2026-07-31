@@ -2,7 +2,7 @@
 
 #include "occlude_approx.h"
 #include "vector.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * first approximation of occluding points

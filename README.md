@@ -1,6 +1,8 @@
-# Terminal Shape Renderer
+# Glyphedron
 
-![alt text](https://github.com/Davey-Hughes/term-shapes/blob/master/images/dodecahedron.png "dodecahedron")
+Polyhedra drawn in terminal glyphs.
+
+![dodecahedron](images/dodecahedron.png "dodecahedron")
 
 ## Installation
 The only thing that needs to be installed to compile this program is ncurses.
@@ -19,7 +21,7 @@ sudo apt install libncurses5-dev
 Without any arguments, the program can be compiled with the makefile and run like so:
 ```
 > make
-> ./term_shapes
+> ./glyphedron
 ```
 
 By default, the shape rendered is a cube, but currently any object given by the
@@ -27,7 +29,7 @@ coordinates of the vertices (and edges) can be rendered by:
 
 ```
 > make
-> ./term_shapes file
+> ./glyphedron file
 ```
 
 ### Keyboard Inputs

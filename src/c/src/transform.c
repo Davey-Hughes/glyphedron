@@ -6,7 +6,7 @@
 #include "transform.h"
 #include "init.h"
 #include "print.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * rotates each point in one of 6 directions, given the angle (can be positive

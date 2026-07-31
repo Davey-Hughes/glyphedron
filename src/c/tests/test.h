@@ -1,7 +1,7 @@
 #ifndef TEST_H
 #define TEST_H
 
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /* running totals for the whole binary; test.c owns the definitions */
 extern int test_checks_run;

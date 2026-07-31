@@ -1,7 +1,7 @@
 #ifndef TRANSFORM_H
 #define TRANSFORM_H
 
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /* prototypes */
 void rotate_shape(double, char, struct shape *);

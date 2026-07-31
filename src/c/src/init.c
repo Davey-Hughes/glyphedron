@@ -5,7 +5,7 @@
 
 #include "init.h"
 #include "vector.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * initialize an object from a file

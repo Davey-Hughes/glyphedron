@@ -1,7 +1,7 @@
 #include <sys/types.h>
 
 #include "raster.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * searches a point_to_print array for a point already occupying the same

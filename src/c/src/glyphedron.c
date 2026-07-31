@@ -25,7 +25,7 @@
 #include "timing.h"
 #endif
 
-#include "term_shapes.h"
+#include "glyphedron.h"
 #include "vector.h"
 #include "print.h"
 #include "transform.h"

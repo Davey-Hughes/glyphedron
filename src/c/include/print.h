@@ -2,7 +2,7 @@
 #define PRINT_H
 
 #include "vector.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * states for determining whether an edge is not occluded, fully occluded, or

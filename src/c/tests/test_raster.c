@@ -2,7 +2,7 @@
 
 #include "test.h"
 #include "raster.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 #define MAX_RECORDED 8
 

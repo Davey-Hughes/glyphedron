@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * hands every point in arr to emit, in order, converted to the integer screen

@@ -6,7 +6,7 @@
 #include "occlusion.h"
 #include "raster.h"
 #include "vector.h"
-#include "term_shapes.h"
+#include "glyphedron.h"
 
 /*
  * translate an x and y value based on the window dimensions and some magic

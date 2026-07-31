@@ -1,4 +1,4 @@
-TARGET := term_shapes
+TARGET := glyphedron
 BUILD := ./build
 OBJDIR := $(BUILD)/objects
 BINDIR := $(BUILD)/bin
@@ -18,7 +18,7 @@ LDLIBS := -lm -lncurses
 # flags required for dependency generation; passed to compilers
 DEPFLAGS = -MT $@ -MD -MP -MF $(DEPDIR)/$*.Td
 
-CTARGET := c_term_shapes
+CTARGET := glyphedron
 CC := clang
 # ssize_t, nanosleep, clock_gettime and CLOCK_PROCESS_CPUTIME_ID are POSIX, not
 # ISO C. -std=c11 (as opposed to -std=gnu11) defines __STRICT_ANSI__, which
@@ -29,7 +29,7 @@ CSRC := $(wildcard $(BASE_SRC)/c/src/*.c)
 COBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CSRC)))
 CDEPS := $(patsubst %,$(DEPDIR)/%.d,$(basename $(CSRC)))
 
-TESTTARGET := c_term_shapes_tests
+TESTTARGET := glyphedron_tests
 # the tests never touch ncurses, so they link libm only
 TESTLDLIBS := -lm
 
