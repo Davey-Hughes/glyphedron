@@ -14,6 +14,12 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends clang make libncurses-dev
+          # -fsanitize=address links against libclang_rt.asan, which Debian
+          # splits out of the clang package and demotes to a Recommends, so
+          # --no-install-recommends leaves the sanitiser build unlinkable. the
+          # package is versioned after the compiler, not the distribution
+          apt-get install -y --no-install-recommends \
+            "libclang-rt-$(clang -dumpversion | cut -d. -f1)-dev"
 
       - uses: actions/checkout@v4
 
