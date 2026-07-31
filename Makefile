@@ -9,8 +9,10 @@ BASE_FLAGS := -Wall -Werror -Wextra -pedantic-errors
 
 # linker
 LD := clang
+# set by the test-asan target, empty otherwise
+SANFLAGS :=
 # linker flags
-LDFLAGS :=
+LDFLAGS := $(SANFLAGS)
 # linker flags: libraries to link (e.g. -lfoo)
 LDLIBS := -lm -lncurses
 # flags required for dependency generation; passed to compilers
@@ -21,11 +23,25 @@ CC := clang
 # ssize_t, nanosleep, clock_gettime and CLOCK_PROCESS_CPUTIME_ID are POSIX, not
 # ISO C. -std=c11 (as opposed to -std=gnu11) defines __STRICT_ANSI__, which
 # hides them in glibc unless a feature test macro asks for them explicitly.
-CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L $(BASE_FLAGS)
+CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L $(BASE_FLAGS) $(SANFLAGS)
 CINCLUDE := -I$(BASE_SRC)/c/include
 CSRC := $(wildcard $(BASE_SRC)/c/src/*.c)
 COBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CSRC)))
 CDEPS := $(patsubst %,$(DEPDIR)/%.d,$(basename $(CSRC)))
+
+TESTTARGET := c_term_shapes_tests
+# the tests never touch ncurses, so they link libm only
+TESTLDLIBS := -lm
+
+# modules that need neither ncurses nor main(), so tests can link them.
+# raster.c joins this list in Task 6
+CORESRC := $(addprefix $(BASE_SRC)/c/src/, \
+	vector.c occlusion.c convex_occlusion.c occlude_approx.c init.c)
+COREOBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CORESRC)))
+
+TESTSRC := $(wildcard $(BASE_SRC)/c/tests/*.c)
+TESTOBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(TESTSRC)))
+TESTDEPS := $(patsubst %,$(DEPDIR)/%.d,$(basename $(TESTSRC)))
 
 # sentinel files recording the flags each object and the binary were last built
 # with, so that switching between e.g. debug_c and release_c invalidates them.
@@ -44,7 +60,7 @@ PRECOMPILE =
 # run and make rebuilds the whole tree
 POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d && touch $@
 
-.PHONY: all c debug_c release_c clean FORCE
+.PHONY: all c debug_c release_c test test-asan clean FORCE
 
 all: c
 
@@ -56,6 +72,14 @@ debug_c: c
 
 release_c: CFLAGS += -O3
 release_c: c
+
+test: $(BINDIR)/$(TESTTARGET)
+	$(BINDIR)/$(TESTTARGET)
+
+test-asan:
+	@$(MAKE) --no-print-directory BUILD=./build/asan \
+		SANFLAGS='-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g' \
+		test
 
 clean:
 	rm -rvf $(BUILD)
@@ -84,18 +108,24 @@ $(CFLAGSFILE): FORCE
 
 $(LDFLAGSFILE): FORCE
 	@mkdir -p $(@D)
-	@printf '%s' '$(LD) $(LDFLAGS) $(LDLIBS)' | cmp -s - $@ || \
-		printf '%s' '$(LD) $(LDFLAGS) $(LDLIBS)' > $@
+	@printf '%s' '$(LD) $(LDFLAGS) $(LDLIBS) $(TESTLDLIBS)' | cmp -s - $@ || \
+		printf '%s' '$(LD) $(LDFLAGS) $(LDLIBS) $(TESTLDLIBS)' > $@
 
 # $(COBJS) rather than $^, so the sentinel is not handed to the linker
 $(BINDIR)/$(CTARGET): $(COBJS) $(LDFLAGSFILE)
 	-@mkdir -p $(BINDIR)
 	$(LINK.o) $(COBJS) $(LDLIBS)
 
+$(BINDIR)/$(TESTTARGET): $(COREOBJS) $(TESTOBJS) $(LDFLAGSFILE)
+	-@mkdir -p $(BINDIR)
+	$(LINK.o) $(COREOBJS) $(TESTOBJS) $(TESTLDLIBS)
+
 $(OBJDIR)/%.o: %.c
 $(OBJDIR)/%.o: %.c $(DEPDIR)/%.d $(CFLAGSFILE)
 	$(shell mkdir -p $(dir $(COBJS)) >/dev/null)
 	$(shell mkdir -p $(dir $(CDEPS)) >/dev/null)
+	$(shell mkdir -p $(dir $(TESTOBJS)) >/dev/null)
+	$(shell mkdir -p $(dir $(TESTDEPS)) >/dev/null)
 	$(PRECOMPILE)
 	$(COMPILE.c) $<
 	$(POSTCOMPILE)
@@ -104,3 +134,4 @@ $(OBJDIR)/%.o: %.c $(DEPDIR)/%.d $(CFLAGSFILE)
 $(DEPDIR)/%.d: ;
 
 -include $(CDEPS)
+-include $(TESTDEPS)

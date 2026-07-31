@@ -3,6 +3,7 @@
 
 #include "print.h"
 #include "convex_occlusion.h"
+#include "occlusion.h"
 #include "vector.h"
 #include "term_shapes.h"
 
