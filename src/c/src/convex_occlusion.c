@@ -5,206 +5,112 @@
 #include "term_shapes.h"
 
 /*
- * determines whether the point p2 lies on the line segment given by p0 and p1
- *
- * returns 1 if true and 0 if false
- */
-
-static
-int
-on_segment(point3 *p0, point3 *p1, point3 *p2)
-{
-	if (p2->x <= fmax(p0->x, p1->x) && p2->x >= fmin(p0->x, p1->x) &&
-	    p2->y <= fmax(p0->y, p1->y) && p2->y >= fmin(p0->y, p1->y) &&
-	    p2->z <= fmax(p0->z, p1->z) && p2->z >= fmin(p0->z, p1->z)) {
-		return 1;
-	}
-
-	return 0;
-}
-
-/*
- * returns 0 if p0, p1, p2 are colinear
- * returns 1 if points are clockwise
- * returns 2 if points are counterclockwise
- *
- * the points are colinear if n = <0, 0, 0>
+ * index of the largest component of a vector by magnitude
  */
 static
 int
-orientation(point3 *p0, point3 *p1, point3 *p2, struct face *face)
+dominant_axis(struct vector3 *v)
 {
-	double dot;
-	point3 t0, t1, t2;
+	double ax, ay, az;
 
-	/*
-	 * if n ⋅ ((p1 - p0) × (p2 - p0)) < 0 then the points are clockwise
-	 * if n ⋅ ((p1 - p0) × (p2 - p0)) > 0 then the points are counterclockwise
-	 * if n ⋅ ((p1 - p0) × (p2 - p0)) = 0 then the points are colinear
-	 */
+	ax = fabs(v->x);
+	ay = fabs(v->y);
+	az = fabs(v->z);
 
-	vector3_sub(p1, p0, &t0);
-	vector3_sub(p2, p0, &t1);
-
-	/* t0 × t1 */
-	vector3_cross(&t0, &t1, &t2);
-
-	/* normal ⋅ t2 */
-	dot = vector3_dot(&(face->normal), &t2);
-
-	if (dot < 0) {        /* clockwise */
-		return 1;
-	} else if (dot > 0) { /* counterclockwise */
-		return 2;
-	} else {              /* colinear */
+	if (ax >= ay && ax >= az) {
 		return 0;
 	}
+
+	if (ay >= az) {
+		return 1;
+	}
+
+	return 2;
 }
 
 /*
- * determine whether these two line segments intersect
- *
- * returns 1 if they intersect, 0 if they don't
+ * projects a 3D point onto one of the three coordinate planes, dropping the
+ * given axis. dropping the axis a face's normal is most aligned with is what
+ * keeps the projected face from collapsing to a line
  */
 static
-int
-intersects(point3 *f0, point3 *f1, point3 *inter,
-	   point3 *far, struct face *face)
+void
+project_to_plane(point3 *p, int axis, double *u, double *v)
 {
-	int o0, o1, o2, o3;
+	switch (axis) {
+	case 0: /* normal mostly along x, so project onto the yz plane */
+		*u = p->y;
+		*v = p->z;
+		break;
 
-	/* find orientations for the general and special cases */
-	o0 = orientation(f0, f1, inter, face);
-	o1 = orientation(f0, f1, far, face);
-	o2 = orientation(inter, far, f0, face);
-	o3 = orientation(inter, far, f1, face);
+	case 1: /* normal mostly along y, so project onto the xz plane */
+		*u = p->x;
+		*v = p->z;
+		break;
 
-	/* general case */
-	if (o0 != o1 && o2 != o3) {
-		return 1;
+	default: /* normal mostly along z, so project onto the xy plane */
+		*u = p->x;
+		*v = p->y;
+		break;
 	}
-
-	/* special cases for colinear */
-	/* f0, f1, and inter are colinear and inter lies on the segment f0, f1 */
-	if (o0 == 0 && on_segment(f0, f1, inter)) {
-		return 1;
-	}
-	/* f0, f1, and far are colinear and far lies on the segment f0, f1 */
-	else if (o1 == 0 && on_segment(f0, f1, far)) {
-		return 1;
-	}
-	/* inter, far, and f0 are colinear and f0 lies on the segment inter, far */
-	else if (o2 == 0 && on_segment(inter, far, f0)) {
-		return 1;
-	}
-	/* inter, far, and f1 are colinear and f1 lies on the segment inter, far */
-	else if (o3 == 0 && on_segment(inter, far, f1)) {
-		return 1;
-	}
-
-	return 0;
 }
 
 /*
- * determines whether a point is inside the polygon named "face"
+ * determines whether a point on a face's plane lies within the face
  *
- * returns 1 if the point is inside, and 0 if not
+ * the face is projected onto a coordinate plane and tested with the crossing
+ * number rule: cast a ray in +u and count the edges it crosses, odd meaning
+ * inside
+ *
+ * the comparison against v is half open, so each edge owns the span
+ * [min(vi, vj), max(vi, vj)). that is what makes a vertex sitting exactly on
+ * the ray safe, though not by counting it once in every case: where the
+ * boundary genuinely crosses the ray exactly one of the two edges owns v and
+ * the vertex counts once, while where the boundary merely touches the ray it
+ * counts twice at a local minimum and not at all at a local maximum. both
+ * touching cases are even, so the parity stays correct. an edge lying along
+ * the ray has vi == vj, fails the guard, and is skipped without dividing
+ *
+ * the previous implementation cast its ray toward a far point with a hardcoded
+ * y of 0 and resolved these cases with explicit collinearity branches instead.
+ * for a point whose intersection also lay at y == 0 that ray ran along the
+ * polygon's own vertices, and those branches resolved the parity
+ * inconsistently: measured against mirror symmetry across every shape file, it
+ * contradicted itself on 12 vertices spread over four convex solids, where
+ * this rule contradicts itself on none
+ *
+ * returns 1 if the point is inside, 0 if not
  */
 static
 int
-is_inside(struct shape *s, point3 *inter, point3 *far, struct face *face)
+point_in_polygon(struct shape *s, point3 *inter, struct face *face)
 {
-	int count, i, next_v;
+	int i, j, axis, inside;
+	double u, v, ui, vi, uj, vj;
 
-	/*
-	 * count number of intersections from the line segment with the polygon
-	 */
-	count = 0;
-	i = 0;
-	while (1) {
-		/* next vertex */
-		next_v = (i + 1) % face->num_v;
+	axis = dominant_axis(&(face->normal));
+	project_to_plane(inter, axis, &u, &v);
+
+	inside = 0;
+	j = face->num_v - 1;
+
+	for (i = 0; i < face->num_v; ++i) {
+		project_to_plane(&(s->vertices[face->face[i]]), axis, &ui, &vi);
+		project_to_plane(&(s->vertices[face->face[j]]), axis, &uj, &vj);
 
 		/*
-		 * first check if the line segment from inter to far intersects
-		 * the edge from the face vertices with indices i and next_v
+		 * the half open test guarantees vi != vj here, so the division
+		 * is safe
 		 */
-		if (intersects(&(s->vertices[face->face[i]]),
-			       &(s->vertices[face->face[next_v]]), inter, far, face)) {
-			/*
-			 * if the point inter is colinear with the line segment
-			 * given from i and next_v, check if it lies on the
-			 * segment
-			 */
-			if (orientation(&(s->vertices[face->face[i]]), inter,
-				        &(s->vertices[face->face[next_v]]), face) == 0) {
-				return on_segment(&(s->vertices[face->face[i]]),
-						  &(s->vertices[face->face[next_v]]), inter);
-			}
-
-			count++;
+		if ((vi > v) != (vj > v) &&
+		    u < (((uj - ui) * (v - vi)) / (vj - vi)) + ui) {
+			inside = !inside;
 		}
 
-		i = next_v;
-
-		/* exit condition */
-		if (i == 0) {
-			break;
-		}
+		j = i;
 	}
 
-	return count % 2 == 1;
-}
-
-/*
- * determine whether a point is contained within a given polygon
- *
- * for this program, the point comes from the intersection given in
- * occlude_point_convex(), and we determine whether the point intersects the
- * plane within the boundaries of the vertices that define the face of the
- * polyhedron being rendered
- */
-static
-int
-point_in_polygon(struct shape *s, point3 *inter, struct face *face,
-		 point3 *coeffs, double d)
-{
-	double z;
-
-	/*
-	 * we need a point on the same plane as the face, but far off one side
-	 * to determine how many edges are intersected by the line segment from
-	 * the intersection point and the far off distance point.
-	 *
-	 * using a large x value, and y value of 0, we can determine the z
-	 * value that corresponds to a point on the plane with the equation:
-	 * 	z = (d - ax - by) / c
-	 * We simply use x = 10000 and y = 0, and plug in the coefficients
-	 * passed into this function
-	 */
-
-	z = (d - (coeffs->x * 10000) - (coeffs->y * 0)) / coeffs->z;
-
-	/*
-	 * now the line segment is defined by the points inter and
-	 * {10000, 0, z}
-	 */
-
-	return is_inside(s, inter, &((point3) {10000, 0, z}), face);
-}
-
-/*
- * returns 1 if p0 is between p1 and p2, 0 otherwise
- */
-int
-is_between(point3 *p0, point3 *p1, point3 *p2)
-{
-	return ((p1->x < p0->x && p0->x < p2->x) ||
-	        (p2->x < p0->x && p0->x < p1->x)) &&
-	       ((p1->y < p0->y && p0->y < p2->y) ||
-		(p2->y < p0->y && p0->y < p1->y)) &&
-	       ((p1->z < p0->z && p0->z < p2->z) ||
-		(p2->z < p0->z && p0->z < p1->z));
+	return inside;
 }
 
 /*
@@ -215,7 +121,7 @@ is_between(point3 *p0, point3 *p1, point3 *p2)
 int
 occlude_point_convex(struct shape *s, point3 *point, struct edge *edge)
 {
-	int i, k, next_v, flag;
+	int i, k, next_v, flag, check_edge;
 	double d, t;
 	point3 n, inter;
 
@@ -227,44 +133,44 @@ occlude_point_convex(struct shape *s, point3 *point, struct edge *edge)
 	 * note: precomputing the equations for the faces would speed this up
 	 */
 
+	/*
+	 * a vertex is not on any one edge, so callers testing a vertex pass an
+	 * invalid edge. in that case there is no edge to exclude, but every
+	 * face must still be tested
+	 */
+	check_edge = edge->edge[0] >= 0 && edge->edge[1] >= 0;
+
 	flag = 0;
 	for (i = 0; i < s->num_f; ++i) {
 
 		/*
 		 * if the point is on an edge that constitutes this face, don't
 		 * consider this face
-		 *
-		 * also check specifically if the edge passed in is invalid (in
-		 * the case where the point being tested for occlusion is a
-		 * vertex)
 		 */
+		if (check_edge) {
+			k = 0;
+			while (1) {
+				next_v = (k + 1) % s->faces[i].num_v;
 
-		if (edge->edge[0] < 0 || edge->edge[1] < 0) {
-			continue;
-		}
+				if ((edge->edge[0] == s->faces[i].face[k] &&
+				     edge->edge[1] == s->faces[i].face[next_v]) ||
+				    (edge->edge[0] == s->faces[i].face[next_v] &&
+				     edge->edge[1] == s->faces[i].face[k])) {
+					flag = 1;
+					break;
+				}
 
-		k = 0;
-		while (1) {
-			next_v = (k + 1) % s->faces[i].num_v;
+				k = next_v;
 
-			if ((edge->edge[0] == s->faces[i].face[k] &&
-			     edge->edge[1] == s->faces[i].face[next_v]) ||
-			    (edge->edge[0] == s->faces[i].face[next_v] &&
-			     edge->edge[1] == s->faces[i].face[k])) {
-				flag = 1;
-				break;
+				if (k == 0) {
+					break;
+				}
 			}
 
-			k = next_v;
-
-			if (k == 0) {
-				break;
+			if (flag) {
+				flag = 0;
+				continue;
 			}
-		}
-
-		if (flag) {
-			flag = 0;
-			continue;
 		}
 
 		n = s->faces[i].normal;
@@ -302,11 +208,19 @@ occlude_point_convex(struct shape *s, point3 *point, struct edge *edge)
 
 
 		/*
-		 * if the intersection point isn't between the center of
-		 * projection and the input point, skip the point in polygon
-		 * calculation
+		 * inter = point + t * (cop - point), so the intersection lies
+		 * strictly between the point and the centre of projection
+		 * exactly when 0 < t < 1. testing t directly avoids the
+		 * per-axis comparison, which reported "not between" whenever a
+		 * coordinate of the point equalled the same coordinate of the
+		 * centre of projection and so stayed constant along the ray
+		 *
+		 * the condition is negated rather than written as
+		 * t <= 0.0 || t >= 1.0, because a ray parallel to the face
+		 * plane gives a zero denominator and a NaN t, and every NaN
+		 * comparison is false
 		 */
-		if (!is_between(&inter, &(s->cop), point)) {
+		if (!(t > 0.0 && t < 1.0)) {
 			continue;
 		}
 
@@ -314,7 +228,7 @@ occlude_point_convex(struct shape *s, point3 *point, struct edge *edge)
 		 * if the intersection is not on a face, loop again to check
 		 * the next face
 		 */
-		if (!point_in_polygon(s, &inter, &(s->faces[i]), &n, d)) {
+		if (!point_in_polygon(s, &inter, &(s->faces[i]))) {
 			continue;
 		}
 

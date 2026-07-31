@@ -13,7 +13,7 @@ occlude_point(struct shape *s, point3 *point, struct edge *edge)
 {
 	switch (s->occlusion) {
 	case NONE:
-		return 1;
+		return 0;
 
 	case APPROX:
 		return occlude_point_approx(s, point);
