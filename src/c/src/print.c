@@ -40,37 +40,6 @@ movexy(double *x, double *y)
 }
 
 /*
- * searches a point_to_print array to determine if the point on the ncurses
- * screen has already been processed including the t_pixel_print.
- *
- * if there's no match on the {x y} coordinates, return -2.
- *
- * if there's a match on the {x y} coordinates and the t_pixel_print is the
- * same, return -1.
- *
- * if there's a match but the t_pixel_print is different, return the index of
- * the match.
- */
-static
-ssize_t
-search_ptp(struct point_to_print *arr, ssize_t len, struct point_to_print *p)
-{
-	ssize_t i;
-
-	for (i = 0; i < len; ++i) {
-		if (p->x == arr[i].x && p->y == arr[i].y) {
-			if (p->t == arr[i].t || arr[i].t == FULL) {
-				return -1;
-			}
-
-			return i;
-		}
-	}
-
-	return -2;
-}
-
-/*
  * midpoint between two points
  * TODO: move somewhere else
  */
@@ -103,12 +72,12 @@ void
 print_edges(struct shape *s)
 {
 	char occlude_val;
-	ssize_t fronts_index, behinds_index, found_front, found_behind;
+	ssize_t fronts_index, behinds_index;
 	int i, k, winx, winy;
 	double x0, y0, z0, v_len, x, y, z, movex, movey;
 	point3 v, u;
 	enum edge_occlusion edge_occlude_state;
-	enum t_pixel_print tpp;
+	enum t_pixel_print tpp, glyph;
 	struct point_to_print test_point;
 
 	getmaxyx(stdscr, winy, winx);
@@ -196,19 +165,10 @@ print_edges(struct shape *s)
 			test_point.y = movey;
 			test_point.t = tpp;
 
-			found_front = search_ptp(s->fronts, fronts_index, &test_point);
-			if (found_front == -1) {
-				continue;
-			}
-
-			found_behind = search_ptp(s->behinds, behinds_index, &test_point);
-			if (found_behind == -1) {
-				continue;
-			}
-
 			/*
-			 * if the occlusion flag is set and a point shouldn't
-			 * be occluded, the rest of the loop prints the point
+			 * which list the point belongs to has to be settled
+			 * before deduplicating, because a point may only be
+			 * compared against the list it will be stored in
 			 */
 			if (edge_occlude_state == PARTIAL) {
 				occlude_val = occlude_point(s,
@@ -222,6 +182,12 @@ print_edges(struct shape *s)
 				continue;
 			}
 
+			if (!ptp_admit(s->fronts, fronts_index,
+				       s->behinds, behinds_index,
+				       occlude_val, &test_point, &glyph)) {
+				continue;
+			}
+
 			/*
 			 * renders the rear and front symbols based on whether
 			 * the point is detected to be "behind" or "in front"
@@ -230,20 +196,12 @@ print_edges(struct shape *s)
 			if (occlude_val == 1) {
 				s->behinds[behinds_index].x = movex;
 				s->behinds[behinds_index].y = movey;
-				if (found_behind >= 0) {
-					s->behinds[behinds_index].t = FULL;
-				} else {
-					s->behinds[behinds_index].t = tpp;
-				}
+				s->behinds[behinds_index].t = glyph;
 				behinds_index++;
 			} else {
 				s->fronts[fronts_index].x = movex;
 				s->fronts[fronts_index].y = movey;
-				if (found_front >= 0) {
-					s->fronts[fronts_index].t = FULL;
-				} else {
-					s->fronts[fronts_index].t = tpp;
-				}
+				s->fronts[fronts_index].t = glyph;
 				fronts_index++;
 			}
 #endif

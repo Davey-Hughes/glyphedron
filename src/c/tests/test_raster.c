@@ -81,10 +81,128 @@ test_emits_nothing_when_empty(void)
 	CHECK_EQ(r.count, 0);
 }
 
+/*
+ * a rasterised point is deduplicated only against the list it will be stored
+ * in. comparing it against both lists discarded a visible point whenever an
+ * occluded one already held the same cell, which broke foreground lines
+ * wherever a background line crossed them
+ */
+static
+void
+test_front_survives_a_matching_behind(void)
+{
+	struct point_to_print behinds[1];
+	struct point_to_print p;
+	enum t_pixel_print glyph;
+
+	behinds[0].x = 10.0;
+	behinds[0].y = 4.0;
+	behinds[0].t = UPPER;
+
+	p.x = 10.0;
+	p.y = 4.0;
+	p.t = UPPER;
+
+	glyph = LOWER;
+
+	/* the front list is empty, so this point is new and must be admitted */
+	CHECK_EQ(ptp_admit(NULL, 0, behinds, 1, 0, &p, &glyph), 1);
+	CHECK_EQ(glyph, (int) UPPER);
+}
+
+static
+void
+test_behind_survives_a_matching_front(void)
+{
+	struct point_to_print fronts[1];
+	struct point_to_print p;
+	enum t_pixel_print glyph;
+
+	fronts[0].x = 10.0;
+	fronts[0].y = 4.0;
+	fronts[0].t = UPPER;
+
+	p.x = 10.0;
+	p.y = 4.0;
+	p.t = UPPER;
+
+	glyph = LOWER;
+
+	CHECK_EQ(ptp_admit(fronts, 1, NULL, 0, 1, &p, &glyph), 1);
+	CHECK_EQ(glyph, (int) UPPER);
+}
+
+static
+void
+test_duplicate_in_its_own_list_is_dropped(void)
+{
+	struct point_to_print fronts[1];
+	struct point_to_print p;
+	enum t_pixel_print glyph;
+
+	fronts[0].x = 10.0;
+	fronts[0].y = 4.0;
+	fronts[0].t = UPPER;
+
+	p.x = 10.0;
+	p.y = 4.0;
+	p.t = UPPER;
+
+	CHECK_EQ(ptp_admit(fronts, 1, NULL, 0, 0, &p, &glyph), 0);
+}
+
+/*
+ * a terminal cell is twice as high as it is wide, so two points can share it
+ * while occupying different halves. the second promotes the cell to FULL
+ */
+static
+void
+test_other_half_of_the_cell_promotes_to_full(void)
+{
+	struct point_to_print fronts[1];
+	struct point_to_print p;
+	enum t_pixel_print glyph;
+
+	fronts[0].x = 10.0;
+	fronts[0].y = 4.0;
+	fronts[0].t = UPPER;
+
+	p.x = 10.0;
+	p.y = 4.0;
+	p.t = LOWER;
+
+	CHECK_EQ(ptp_admit(fronts, 1, NULL, 0, 0, &p, &glyph), 1);
+	CHECK_EQ(glyph, (int) FULL);
+}
+
+static
+void
+test_a_full_cell_absorbs_further_points(void)
+{
+	struct point_to_print fronts[1];
+	struct point_to_print p;
+	enum t_pixel_print glyph;
+
+	fronts[0].x = 10.0;
+	fronts[0].y = 4.0;
+	fronts[0].t = FULL;
+
+	p.x = 10.0;
+	p.y = 4.0;
+	p.t = UPPER;
+
+	CHECK_EQ(ptp_admit(fronts, 1, NULL, 0, 0, &p, &glyph), 0);
+}
+
 void
 suite_raster(void)
 {
 	test_emits_every_point();
 	test_emits_a_single_point();
 	test_emits_nothing_when_empty();
+	test_front_survives_a_matching_behind();
+	test_behind_survives_a_matching_front();
+	test_duplicate_in_its_own_list_is_dropped();
+	test_other_half_of_the_cell_promotes_to_full();
+	test_a_full_cell_absorbs_further_points();
 }
