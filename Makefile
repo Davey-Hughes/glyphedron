@@ -34,9 +34,8 @@ TESTTARGET := c_term_shapes_tests
 TESTLDLIBS := -lm
 
 # modules that need neither ncurses nor main(), so tests can link them.
-# raster.c joins this list in Task 6
 CORESRC := $(addprefix $(BASE_SRC)/c/src/, \
-	vector.c occlusion.c convex_occlusion.c occlude_approx.c init.c)
+	vector.c occlusion.c convex_occlusion.c occlude_approx.c raster.c init.c)
 COREOBJS := $(patsubst %,$(OBJDIR)/%.o,$(basename $(CORESRC)))
 
 TESTSRC := $(wildcard $(BASE_SRC)/c/tests/*.c)

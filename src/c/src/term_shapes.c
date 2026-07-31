@@ -27,7 +27,6 @@
 
 #include "term_shapes.h"
 #include "vector.h"
-#include "occlusion.h"
 #include "print.h"
 #include "transform.h"
 #include "init.h"

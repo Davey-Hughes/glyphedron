@@ -4,6 +4,7 @@
 #include "print.h"
 #include "convex_occlusion.h"
 #include "occlusion.h"
+#include "raster.h"
 #include "vector.h"
 #include "term_shapes.h"
 
@@ -81,6 +82,17 @@ midpoint(point3 *p0, point3 *p1, point3 *mp)
 	mp->y = (p0->y + p1->y) / 2;
 	mp->z = (p0->z + p1->z) / 2;
 }
+
+#if USE_NCURSES
+static
+void
+emit_ncurses(int y, int x, char t, void *ctx)
+{
+	(void) ctx;
+
+	mvprintw(y, x, "%c", t);
+}
+#endif
 
 /*
  * prints the edges by calculating the normal vector from two given points, and
@@ -242,21 +254,13 @@ print_edges(struct shape *s)
 	/* print all the points behind */
 	attron(A_DIM);
 	if (s->occlusion != CONVEX) {
-		for (ssize_t j = 0; j < behinds_index - 1; ++j) {
-			mvprintw(s->behinds[j].y,
-				 s->behinds[j].x,
-				 "%c", s->behinds[j].t);
-		}
+		ptp_emit(s->behinds, behinds_index, emit_ncurses, NULL);
 	}
 	attroff(A_DIM);
 
 	/* print all the points in front */
 	attron(A_BOLD);
-	for (ssize_t j = 0; j < fronts_index - 1; ++j) {
-		mvprintw(s->fronts[j].y,
-			 s->fronts[j].x,
-			 "%c", s->fronts[j].t);
-	}
+	ptp_emit(s->fronts, fronts_index, emit_ncurses, NULL);
 	attroff(A_BOLD);
 #endif
 }

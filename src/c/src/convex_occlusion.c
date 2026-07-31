@@ -77,7 +77,13 @@ project_to_plane(point3 *p, int axis, double *u, double *v)
  * polygon's own vertices, and those branches resolved the parity
  * inconsistently: measured against mirror symmetry across every shape file, it
  * contradicted itself on 12 vertices spread over four convex solids, where
- * this rule contradicts itself on none
+ * this rule contradicts itself on none of those. measured end to end through
+ * occlude_point_convex, one mirror pair still disagrees: dodecahedron vertices
+ * 16 and 17. the shape file stores phi to 5 decimals, so a vertex sits a
+ * fraction off its own face plane, its t against an incident face comes out
+ * around 1.1e-16, and the intersection lands exactly on that face's boundary.
+ * that is the ulp level ambiguity an epsilon was measured to make worse, not
+ * better
  *
  * returns 1 if the point is inside, 0 if not
  */

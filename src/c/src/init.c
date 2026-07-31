@@ -80,7 +80,7 @@ init_from_file(char *fname, struct shape *s)
 		goto cleanup_vertices;
 	}
 
-	s->faces = malloc(sizeof(struct face) * s->num_f);
+	s->faces = calloc(s->num_f, sizeof(struct face));
 	if (s->faces == NULL) {
 		goto cleanup_edges;
 	}
@@ -165,7 +165,7 @@ init_from_file(char *fname, struct shape *s)
 
 			vi = atoi(str);
 
-			if (vi < 0 || vi > num_v) {
+			if (vi < 0 || vi >= num_v) {
 				fprintf(stderr, "Face vertex out of bounds\n");
 				goto cleanup_face_vertices;
 			}
