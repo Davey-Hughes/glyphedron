@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: docker
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends clang make libncurses-dev
+
+      - uses: actions/checkout@v4
+
+      # the renderer itself needs ncurses; the tests do not, but a plain build
+      # is the only thing that compiles print.c and glyphedron.c, so it has to
+      # run for -Werror to cover them
+      - name: Build
+        run: make
+
+      - name: Test
+        run: make test
+
+      # not redundant with the plain run: the cleanup path in init_from_file
+      # performs a bad free that an unsanitised build swallows in silence
+      - name: Test under AddressSanitizer and UBSan
+        run: make test-asan
